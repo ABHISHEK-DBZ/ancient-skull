@@ -1,0 +1,74 @@
+# Azure Container Apps / App Service deployment configuration
+# Use with: az containerapp up --environment <env-name> --resource-group <rg>
+# Or: az webapp up --name <app-name> --resource-group <rg> --plan <plan>
+
+name: exit-capsule-generator
+environment: exit-capsule-env
+resourceGroup: exit-capsule-rg
+location: eastus
+
+properties:
+  template:
+    containers:
+      - name: exit-capsule-backend
+        image: exitcacr.azurecr.io/exit-capsule-generator:${TAG:-latest}
+        cpu: 1.0
+        memory: 2.0Gi
+        env:
+          - name: PORT
+            value: "8000"
+          - name: GEMMA_API_KEY
+            secretRef: gemma-api-key
+          - name: GEMMA_API_BASE_URL
+            value: "https://generativelanguage.googleapis.com/v1beta"
+          - name: GEMMA_MODEL
+            value: "gemma-4-26b-a4b-it"
+          - name: ENABLE_REMOTE_INFERENCE
+            value: "true"
+          - name: GITHUB_CLIENT_ID
+            secretRef: github-client-id
+          - name: GITHUB_CLIENT_SECRET
+            secretRef: github-client-secret
+          - name: GITHUB_REDIRECT_URI
+            value: "https://exit-capsule-generator.<region>.azurecontainerapps.io/auth/callback"
+          - name: SECRET_KEY
+            secretRef: app-secret-key
+          - name: SESSION_COOKIE_SECURE
+            value: "true"
+          - name: REQUIRE_AUTH
+            value: "false"
+          - name: CORS_ORIGINS
+            value: "https://exit-capsule-generator.<region>.azurecontainerapps.io"
+          - name: ALLOWED_SCAN_ROOTS
+            value: ""
+          - name: DATABASE_PATH
+            value: "/home/data/exit_capsule.db"
+          - name: CAPSULES_DIR
+            value: "/home/data/generated_capsules"
+          - name: TEMP_WORKSPACES_DIR
+            value: "/home/data/temp_workspaces"
+          - name: BACKEND_HOST
+            value: "0.0.0.0"
+          - name: BACKEND_PORT
+            value: "8000"
+        resources:
+          cpu: 1.0
+          memory: 2.0Gi
+    ingress:
+      external: true
+      targetPort: 8000
+      allowInsecure: false
+  configuration:
+    ingress:
+      external: true
+      targetPort: 8000
+      allowInsecure: false
+    secrets:
+      - name: gemma-api-key
+        value: <set-via-azure-portal-or-cli>
+      - name: github-client-id
+        value: <set-via-azure-portal-or-cli>
+      - name: github-client-secret
+        value: <set-via-azure-portal-or-cli>
+      - name: app-secret-key
+        value: <generate-with-python-secrets-token-urlsafe-48>

@@ -1,12 +1,14 @@
 import json
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
+from app.core.auth import enforce_scan_access
 from app.database import get_db_connection
 
 router = APIRouter(prefix="/api/scans", tags=["Dependencies"])
 
 @router.get("/{scan_id}/dependencies/{package_name}")
-def get_dependency_details(scan_id: str, package_name: str):
+def get_dependency_details(scan_id: str, package_name: str, request: Request):
     """Retrieve full details, AST usage locations, metadata, and verification state for a dependency."""
+    enforce_scan_access(request, scan_id)
     with get_db_connection() as conn:
         cursor = conn.cursor()
         

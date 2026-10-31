@@ -6,10 +6,10 @@ build-backend = "setuptools.build_meta"
 name = "exit-capsule-generator"
 version = "1.0.0"
 description = "AI-Powered Python Dependency Resilience and Migration Planning Tool"
-readme = "../README.md"
+readme = { text = "AI-Powered Python Dependency Resilience and Migration Planning Tool", content-type = "text/markdown" }
 requires-python = ">=3.12"
 dependencies = [
-    "fastapi>=0.110.0",
+    "fastapi>=0.110.0,<0.117.0",
     "uvicorn>=0.27.0",
     "pydantic>=1.10.0,<2.0.0",
     "httpx>=0.27.0",

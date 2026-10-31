@@ -123,21 +123,68 @@ def generate_implementation_plan(
     # 15. Post-implementation reporting
     post_reporting = "Generate post-implementation verification report and link to capsule."
 
+    # Build rich files_to_modify structure for UI and automated agents
+    files_to_modify = []
+    for f in affected_files:
+        usages_in_f = [u for u in ast_usages if u.get("file_path") == f]
+        lines_str = ", ".join(str(u.get("line_number")) for u in usages_in_f if u.get("line_number"))
+        line_desc = f" (line {lines_str})" if lines_str else ""
+        files_to_modify.append({
+            "path": f,
+            "reason": f"Update `{target_package}` imports and API call sites{line_desc} to `{candidate_package}`",
+            "classification": "Observed AST"
+        })
+    if not files_to_modify:
+        files_to_modify.append({
+            "path": "requirements.txt",
+            "reason": f"Update dependency manifest: remove `{target_package}`, declare `{candidate_package}`",
+            "classification": "Manifest"
+        })
+
+    # Migration steps formatted with rich metadata
+    step_details = [
+        f"Create an isolated branch: git checkout -b migrate/{target_package}-to-{candidate_package}",
+        f"Run baseline pytest suite to verify all existing tests pass before refactoring",
+        f"Update requirements.txt or pyproject.toml to install {candidate_package} and remove {target_package}",
+        f"Update import statements across affected files: {', '.join(files_likely_to_change) if files_likely_to_change else 'requirements.txt'}",
+        f"Adapt specific API call patterns and argument names according to verified API differences",
+        f"Run isolated unit and integration test suite to verify no functional regressions",
+        f"Execute post-implementation verification checks in the Exit Capsule workbench",
+        f"Inspect git diff, ensure zero unintended changes, and submit pull request"
+    ]
+    migration_steps = []
+    for i, s in enumerate(ordered_steps):
+        migration_steps.append({
+            "title": s,
+            "step": s,
+            "details": step_details[i] if i < len(step_details) else s
+        })
+
     plan_dict = {
         "objective": objective,
+        "target_package": target_package,
+        "candidate_package": candidate_package,
+        "candidate_replacement": candidate_package,
         "current_behavior": current_behavior,
         "files_likely_to_change": files_likely_to_change,
+        "files_to_modify": files_to_modify,
         "api_differences": api_diffs,
         "ordered_implementation_steps": ordered_steps,
+        "migration_steps": migration_steps,
         "dependency_file_changes": dep_file_changes,
         "code_migration_steps": code_migration_steps,
         "tests_to_update": tests_to_update,
         "commands_to_execute": commands,
+        "test_commands": ["python -m pytest tests/ -v", "pip check"],
         "expected_outcomes": expected_outcomes,
-        "rollback_strategy": rollback,
+        "rollback_strategy": {
+            "command": "git restore . && pip install -r requirements.txt",
+            "description": rollback
+        },
         "risks_and_assumptions": risks,
         "verification_checklist": checklist,
         "definition_of_done": definition_of_done,
+        "acceptance_criteria": definition_of_done,
         "post_implementation_reporting": post_reporting,
         "developer_notes": developer_notes or ""
     }

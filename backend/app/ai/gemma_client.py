@@ -4,6 +4,7 @@ import httpx
 from typing import Dict, Any, Optional
 from app.config import settings
 from app.core.exceptions import AIConfigurationError
+from app.core.security import redact_secrets
 from app.ai.schemas import GemmaMigrationProposal
 
 SYSTEM_PROMPT = """You are an expert Python dependency migration planner powered by Gemma 4.
@@ -157,7 +158,9 @@ class GemmaClient:
                 try:
                     with httpx.Client(timeout=timeout) as client:
                         if is_google_api:
-                            endpoint = f"{self.base_url}/models/{model_candidate}:generateContent?key={self.api_key}"
+                            # Send the key as a header; query strings leak into
+                            # proxy and access logs.
+                            endpoint = f"{self.base_url}/models/{model_candidate}:generateContent"
                             combined_text = (
                                 f"{SYSTEM_PROMPT}\n\n"
                                 f"Analyze the following dependency and output strictly valid JSON matching the schema:\n"
@@ -166,9 +169,13 @@ class GemmaClient:
                             payload = {
                                 "contents": [{"parts": [{"text": combined_text}]}]
                             }
-                            response = client.post(endpoint, json=payload)
+                            response = client.post(
+                                endpoint,
+                                json=payload,
+                                headers={"x-goog-api-key": self.api_key},
+                            )
                             if response.status_code != 200:
-                                last_error = f"Google Gemma API error (HTTP {response.status_code}): {response.text[:200]}"
+                                last_error = f"Google Gemma API error (HTTP {response.status_code}): {redact_secrets(response.text[:200])}"
                                 # If it's a 500 error on this model, break inner loop to try next candidate model
                                 if response.status_code == 500:
                                     break

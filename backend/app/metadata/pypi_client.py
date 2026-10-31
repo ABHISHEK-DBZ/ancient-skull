@@ -1,12 +1,31 @@
 import httpx
 import time
 from typing import Dict, Any, Optional
+from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.version import Version, InvalidVersion
 from app.scanner.package_mappings import normalize_package_name
 
 # Simple in-memory cache with timestamp
 _METADATA_CACHE: Dict[str, tuple[float, Dict[str, Any]]] = {}
 CACHE_TTL_SECONDS = 3600  # 1 hour
+
+
+def extract_pinned_version(version_spec: Optional[str]) -> Optional[str]:
+    """Return the exact version of a '==' specifier, or None for ranges.
+
+    A range such as '>=2,<3' has no single pinned release, so version-lag
+    scoring must not treat the first number as a pin.
+    """
+    if not version_spec:
+        return None
+    try:
+        specifiers = SpecifierSet(version_spec.strip())
+    except InvalidSpecifier:
+        return None
+    for spec in specifiers:
+        if spec.operator in ("==", "===") and not spec.version.endswith(".*"):
+            return spec.version
+    return None
 
 def fetch_pypi_metadata(package_name: str, pinned_version: Optional[str] = None, timeout: float = 6.0) -> Dict[str, Any]:
     """
@@ -79,7 +98,7 @@ def fetch_pypi_metadata(package_name: str, pinned_version: Optional[str] = None,
                 result["latest_release_date"] = releases[latest_v][0].get("upload_time_iso_8601") or releases[latest_v][0].get("upload_time")
 
             # Check pinned version metadata & yanked status
-            clean_pinned = pinned_version.lstrip("=~><^!").strip() if pinned_version else None
+            clean_pinned = extract_pinned_version(pinned_version)
             if clean_pinned:
                 if clean_pinned in releases:
                     rel_files = releases[clean_pinned]

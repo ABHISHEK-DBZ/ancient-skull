@@ -1,6 +1,7 @@
 import json
-import time
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException, Request, Response
+from app.core.auth import enforce_scan_access
+from app.core.clock import iso_now
 from app.database import get_db_connection
 from app.models.schemas import PlanRequest
 from app.planner.implementation_planner import generate_implementation_plan
@@ -9,11 +10,12 @@ from app.capsule.generator import assemble_and_save_capsule
 router = APIRouter(prefix="/api/scans", tags=["Planner"])
 
 @router.post("/{scan_id}/plan")
-def create_implementation_plan(scan_id: str, req: PlanRequest):
+def create_implementation_plan(scan_id: str, req: PlanRequest, request: Request):
     """
     Generate an evidence-backed 15-point implementation plan and AI-agent prompt.
-    Enabled after developer review.
+    Enabled only after explicit developer approval.
     """
+    enforce_scan_access(request, scan_id)
     with get_db_connection() as conn:
         cursor = conn.cursor()
         
@@ -23,11 +25,10 @@ def create_implementation_plan(scan_id: str, req: PlanRequest):
         """, (scan_id, req.package_name))
         app_row = cursor.fetchone()
         
-        # Optional check: If developer explicitly rejected, warn or disallow
-        if app_row and app_row["decision"] == "REJECTED":
-            raise HTTPException(status_code=400, detail="Cannot generate implementation plan for a rejected migration proposal.")
+        if not app_row or app_row["decision"] != "APPROVED":
+            raise HTTPException(status_code=403, detail="Implementation plans require explicit developer approval for the migration proposal.")
 
-        dev_notes = app_row["notes"] if app_row else None
+        dev_notes = app_row["notes"]
 
         # 2. Fetch AST usages
         cursor.execute("SELECT ast_usage_json FROM dependencies WHERE scan_id = ? AND package_name = ?", (scan_id, req.package_name))
@@ -69,7 +70,7 @@ def create_implementation_plan(scan_id: str, req: PlanRequest):
             json.dumps(plan_report.plan_dict),
             plan_report.plan_markdown,
             plan_report.ai_agent_prompt,
-            str(time.time())
+            iso_now()
         ))
         conn.commit()
 
@@ -79,8 +80,9 @@ def create_implementation_plan(scan_id: str, req: PlanRequest):
     return plan_report.to_dict()
 
 @router.get("/{scan_id}/plans")
-def list_implementation_plans(scan_id: str):
+def list_implementation_plans(scan_id: str, request: Request):
     """Retrieve summary of all implementation plans generated for a scan."""
+    enforce_scan_access(request, scan_id)
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("""
@@ -103,8 +105,9 @@ def list_implementation_plans(scan_id: str):
         return rows
 
 @router.get("/{scan_id}/plan/{package_name}")
-def get_implementation_plan(scan_id: str, package_name: str):
+def get_implementation_plan(scan_id: str, package_name: str, request: Request):
     """Retrieve existing implementation plan and AI prompt for a package."""
+    enforce_scan_access(request, scan_id)
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("""
@@ -124,8 +127,9 @@ def get_implementation_plan(scan_id: str, package_name: str):
         }
 
 @router.get("/{scan_id}/plan/{package_name}/download")
-def download_implementation_plan(scan_id: str, package_name: str, format: str = "md"):
+def download_implementation_plan(scan_id: str, package_name: str, request: Request, format: str = "md"):
     """Download the implementation plan as Markdown or JSON."""
+    enforce_scan_access(request, scan_id)
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("""

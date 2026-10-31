@@ -168,23 +168,25 @@ def run_analysis_pipeline(
         try:
             ver_results = run_verification_pipeline(
                 repo_path=str(repo_path),
-                target_package=orig,
+                original_package=orig,
                 candidate_package=cand,
+                ast_usages=next((d["ast_usages"] for d in dep_records if d["package_name"] == orig), []),
                 run_live_tests=False
             )
-            for chk in ver_results:
+            for chk in ver_results.checks:
                 chk_dict = chk.to_dict()
                 verification_checks.append(chk_dict)
                 evidence_ledger.append(CapsuleEvidenceItem(
                     claim=f"Verification check for {orig} -> {cand}: {chk_dict['check_name']}",
                     classification="verified" if chk_dict["status"] == "PASS" else (
-                        "rejected" if chk_dict["status"] in ["FAIL", "AI CLAIM REJECTED"] else "inconclusive"
+                        "rejected" if chk_dict["status"] in ["FAIL", "AI_CLAIM_REJECTED"] else "inconclusive"
                     ),
                     evidence=chk_dict.get("evidence") or chk_dict.get("error_details") or "No details",
                     timestamp=time.time()
                 ))
-        except Exception:
-            pass
+        except Exception as exc:
+            if not quiet:
+                print(gray(f"    -> Verification for {orig} skipped: {redact_secrets(str(exc))}"))
 
     # Build Capsule Object
     scan_id = f"cli_{int(time.time())}"
@@ -196,6 +198,15 @@ def run_analysis_pipeline(
         "dev": []
     }
     
+    # Confidence reflects what was actually executed, never a fixed claim.
+    failed_checks = [c for c in verification_checks if c["status"] in ("FAIL", "AI_CLAIM_REJECTED")]
+    if not verification_checks:
+        confidence = 40.0
+    elif failed_checks:
+        confidence = 25.0
+    else:
+        confidence = 75.0
+
     capsule_data = ExitCapsuleData(
         schema_version="1.0.0",
         scan_id=scan_id,
@@ -213,7 +224,7 @@ def run_analysis_pipeline(
         unresolved_risks=[d["package_name"] for d in dep_records if d["risk_score"] >= 40.0],
         limitations=["CLI scan without live container sandbox isolation"],
         approval_state={},
-        confidence_score=0.92
+        confidence_score=confidence
     )
 
     # Write output files
@@ -317,9 +328,19 @@ def main():
     if args.command == "verify":
         print(bold(f"\n[*] Verifying migration: {cyan(args.package)} -> {green(args.candidate)}..."))
         repo_p = Path(args.repo).resolve()
-        results = run_verification_pipeline(str(repo_p), args.package, args.candidate, run_live_tests=False)
+        if not repo_p.exists() or not repo_p.is_dir():
+            print(red(f"[!] Error: Repository path '{repo_p}' does not exist."), file=sys.stderr)
+            sys.exit(1)
+        usages_by_pkg, _, _ = analyze_repository_ast(repo_p)
+        results = run_verification_pipeline(
+            repo_path=str(repo_p),
+            original_package=args.package,
+            candidate_package=args.candidate,
+            ast_usages=[u.to_dict() for u in usages_by_pkg.get(args.package, [])],
+            run_live_tests=False,
+        )
         print("-" * 65)
-        for r in results:
+        for r in results.checks:
             d = r.to_dict()
             st = d["status"]
             color_st = green(st) if st == "PASS" else (red(st) if "FAIL" in st or "REJECTED" in st else yellow(st))

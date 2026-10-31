@@ -1,0 +1,94 @@
+/* ==========================================================================
+   EXIT CAPSULE CINEMATIC DESIGN SYSTEM — TYPOGRAPHY
+   ========================================================================== */
+
+:root {
+  --font-display: 'Space Grotesk', 'Sora', -apple-system, sans-serif;
+  --font-editorial: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+/* Base Typographic Hierarchy */
+.ec-title-display {
+  font-family: var(--font-display);
+  font-size: clamp(2.8rem, 7vw, 6.2rem);
+  font-weight: 700;
+  line-height: 0.96;
+  letter-spacing: -0.04em;
+  color: var(--ec-text-primary);
+}
+
+.ec-title-section {
+  font-family: var(--font-display);
+  font-size: clamp(2.2rem, 5vw, 4.2rem);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  color: var(--ec-text-primary);
+}
+
+.ec-title-subsection {
+  font-family: var(--font-display);
+  font-size: clamp(1.4rem, 2.8vw, 2.4rem);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+  color: var(--ec-text-primary);
+}
+
+.ec-editorial-accent {
+  font-family: var(--font-editorial);
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+.ec-body-large {
+  font-family: var(--font-body);
+  font-size: clamp(1.05rem, 1.4vw, 1.35rem);
+  line-height: 1.6;
+  font-weight: 400;
+  color: var(--ec-text-muted);
+}
+
+.ec-body-standard {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: var(--ec-text-muted);
+}
+
+.ec-meta-mono {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ec-text-dim);
+}
+
+.ec-badge-mono {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  padding: 4px 10px;
+  border-radius: var(--ec-radius-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Vertical Text Labels */
+.ec-vertical-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ec-text-dim);
+  user-select: none;
+}
+

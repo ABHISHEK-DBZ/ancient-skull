@@ -105,6 +105,13 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, type = 'check'
       </span>
     );
   }
+  if (s === 'NOT_VERIFIED' || s === 'NOT_RUN') {
+    return (
+      <span className="badge badge-not-run">
+        <Clock size={12} /> Not run
+      </span>
+    );
+  }
 
   return (
     <span className="badge badge-not-run">

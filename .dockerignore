@@ -1,0 +1,68 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.env
+.secret_key
+backend/.secret_key
+.venv
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Node / Frontend
+node_modules/
+frontend/dist/
+frontend/dist-ssr/
+*.local
+
+# Database & temporary artifacts
+*.sqlite3
+*.db
+generated_capsules/
+backend/generated_capsules/
+temp_workspaces/
+isolated_envs/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE & OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Azure
+.azure/
+
+# Logs
+*.log
+/home/LogFiles/
+
+# Freebuff
+.freebuff/

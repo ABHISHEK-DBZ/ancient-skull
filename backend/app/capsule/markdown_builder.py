@@ -9,6 +9,9 @@ def generate_capsule_markdown(capsule: ExitCapsuleData) -> str:
     md: List[str] = []
     md.append(f"# Dependency Exit Capsule: `{capsule.scan_id}`")
     md.append(f"**Generated:** {dt_str} | **Tool Version:** {capsule.tool_version} | **Schema:** {capsule.schema_version}")
+    md.append(f"**Capsule Version:** v{capsule.capsule_version} | **SHA-256:** `{capsule.capsule_sha256}`")
+    if capsule.previous_seal_sha256:
+        md.append(f"**Previous Seal:** `{capsule.previous_seal_sha256}`")
     md.append(f"**Repository:** `{capsule.repository_path}`\n")
 
     md.append("> [!NOTE]")

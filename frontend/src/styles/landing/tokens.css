@@ -1,0 +1,119 @@
+/* ==========================================================================
+   EXIT CAPSULE CINEMATIC DESIGN SYSTEM — TOKENS (LIGHT & DARK THEMES)
+   Theme: THE FUTURE OF DEPENDENCY RESILIENCE
+   ========================================================================== */
+
+/* DARK THEME (DEFAULT) */
+:root,
+[data-theme="dark"] {
+  /* Surface Palettes */
+  --ec-bg-dark: #090B0E;
+  --ec-bg-secondary: #0F1318;
+  --ec-bg-card: rgba(18, 22, 28, 0.85);
+  --ec-bg-elevated: #161B22;
+  --ec-bg-surface-glass: rgba(22, 27, 34, 0.72);
+  --ec-bg-terminal: #07090C;
+  --ec-bg-chip: rgba(255, 255, 255, 0.06);
+
+  /* High-Contrast Text */
+  --ec-text-primary: #FFFFFF;
+  --ec-text-muted: #CBD5E1;
+  --ec-text-dim: #94A3B8;
+  --ec-text-inverse: #090B0E;
+
+  /* Expressive Accent Colors */
+  --ec-electric-blue: #536DFF;
+  --ec-electric-blue-glow: rgba(83, 109, 255, 0.35);
+  --ec-acid-lime: #D8FF45;
+  --ec-acid-lime-glow: rgba(216, 255, 69, 0.3);
+  --ec-emerald: #51D6A0;
+  --ec-emerald-glow: rgba(81, 214, 160, 0.3);
+  --ec-risk-red: #FF624E;
+  --ec-risk-red-glow: rgba(255, 98, 78, 0.35);
+  --ec-amber: #FFB84D;
+  --ec-amber-glow: rgba(255, 184, 77, 0.3);
+  --ec-ultraviolet: #9D84FF;
+  --ec-ultraviolet-glow: rgba(157, 132, 255, 0.3);
+
+  /* Borders & Grids */
+  --ec-border-subtle: rgba(255, 255, 255, 0.1);
+  --ec-border-light: rgba(255, 255, 255, 0.18);
+  --ec-border-focus: rgba(83, 109, 255, 0.6);
+  --ec-grid-line: rgba(255, 255, 255, 0.035);
+
+  /* Radii & Shadows */
+  --ec-radius-sm: 4px;
+  --ec-radius-md: 8px;
+  --ec-radius-lg: 14px;
+  --ec-radius-xl: 20px;
+  --ec-radius-full: 9999px;
+
+  --ec-shadow-subtle: 0 4px 20px rgba(0, 0, 0, 0.5);
+  --ec-shadow-cinematic: 0 20px 50px -10px rgba(0, 0, 0, 0.85), 0 0 30px rgba(83, 109, 255, 0.15);
+  --ec-shadow-glow-blue: 0 0 35px rgba(83, 109, 255, 0.4);
+  --ec-shadow-glow-emerald: 0 0 35px rgba(81, 214, 160, 0.4);
+
+  /* Paper Section (Editorial Inversion Chapter) */
+  --ec-paper-bg: #0B0E13;
+  --ec-paper-card: rgba(16, 20, 25, 0.75);
+  --ec-paper-text: #FFFFFF;
+  --ec-paper-text-muted: #94A3B8;
+  --ec-paper-border: rgba(255, 255, 255, 0.1);
+
+  /* Transitions */
+  --ec-ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ec-transition-fast: 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  --ec-transition-normal: 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* LIGHT THEME */
+[data-theme="light"] {
+  /* Clean Light Surfaces */
+  --ec-bg-dark: #F8FAFC;
+  --ec-bg-secondary: #EDF2F7;
+  --ec-bg-card: #FFFFFF;
+  --ec-bg-elevated: #FFFFFF;
+  --ec-bg-surface-glass: rgba(255, 255, 255, 0.92);
+  --ec-bg-terminal: #0F172A;
+  --ec-bg-chip: rgba(15, 23, 42, 0.06);
+
+  /* 100% High-Legibility Dark Text on Light Surfaces */
+  --ec-text-primary: #0F172A;
+  --ec-text-muted: #334155;
+  --ec-text-dim: #64748B;
+  --ec-text-inverse: #FFFFFF;
+
+  /* Accent Colors Adjusted for High Light Contrast */
+  --ec-electric-blue: #3B55F4;
+  --ec-electric-blue-glow: rgba(59, 85, 244, 0.22);
+  --ec-acid-lime: #15803D;
+  /* Deep readable forest lime for light theme */
+  --ec-acid-lime-glow: rgba(21, 128, 61, 0.2);
+  --ec-emerald: #059669;
+  --ec-emerald-glow: rgba(5, 150, 105, 0.22);
+  --ec-risk-red: #DC2626;
+  --ec-risk-red-glow: rgba(220, 38, 38, 0.22);
+  --ec-amber: #D97706;
+  --ec-amber-glow: rgba(217, 119, 6, 0.2);
+  --ec-ultraviolet: #6D28D9;
+  --ec-ultraviolet-glow: rgba(109, 40, 217, 0.2);
+
+  /* Borders & Grids */
+  --ec-border-subtle: #E2E8F0;
+  --ec-border-light: #CBD5E1;
+  --ec-border-focus: #3B55F4;
+  --ec-grid-line: rgba(15, 23, 42, 0.04);
+
+  /* Paper Section (Warm Editorial Paper) */
+  --ec-paper-bg: #F5F3EC;
+  --ec-paper-card: #FFFFFF;
+  --ec-paper-text: #171815;
+  --ec-paper-text-muted: #5C626C;
+  --ec-paper-border: #E2DFD2;
+
+  /* Shadows for Light Mode */
+  --ec-shadow-subtle: 0 4px 18px rgba(15, 23, 42, 0.06);
+  --ec-shadow-cinematic: 0 16px 40px -10px rgba(15, 23, 42, 0.12), 0 0 20px rgba(59, 85, 244, 0.08);
+  --ec-shadow-glow-blue: 0 4px 18px rgba(59, 85, 244, 0.25);
+  --ec-shadow-glow-emerald: 0 4px 18px rgba(5, 150, 105, 0.25);
+}

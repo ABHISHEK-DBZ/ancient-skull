@@ -6,6 +6,7 @@ from app.metadata.pypi_client import fetch_pypi_metadata
 from app.verification.isolated_env import IsolatedEnvironment
 from app.verification.test_runner import detect_test_command, parse_test_results, IsolatedRepositoryCopy
 from app.verification.api_compat import compare_api_usage
+from app.core.security import execute_isolated_command
 from app.ai.schemas import GemmaMigrationProposal
 
 class VerificationCheckResult:

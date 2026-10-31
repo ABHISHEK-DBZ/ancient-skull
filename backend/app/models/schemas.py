@@ -2,9 +2,8 @@ from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
 
 class StartScanRequest(BaseModel):
-    repo_path: str = Field(..., description="Path to the local Python repository")
+    repo_path: str = Field(..., description="Path to a local Python repository, or a public GitHub URL")
     run_ai: bool = Field(default=False, description="Whether to trigger Gemma 4 AI migration planning")
-    custom_mappings: Optional[Dict[str, str]] = Field(default=None, description="Custom import-to-package mappings")
 
 class StartScanResponse(BaseModel):
     scan_id: str

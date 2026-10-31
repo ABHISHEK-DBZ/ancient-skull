@@ -24,7 +24,7 @@ Upon developer review and explicit approval, the engine generates an evidence-ba
 |---|---|
 | **Backend Language** | Python 3.12+ |
 | **Web Framework** | FastAPI 0.110+ (served by Uvicorn ASGI) |
-| **Data Validation & Settings** | Pydantic 2 & pydantic-settings |
+| **Data Validation & Settings** | Pydantic 1.10 (`pydantic-settings` used automatically on Pydantic 2) |
 | **Outbound HTTP** | httpx |
 | **Static Code Analysis** | Python standard library `ast` module (no code execution) |
 | **Version & Package Logic** | packaging (PEP 440 / PEP 503 normalization) |
@@ -168,7 +168,7 @@ Platform requirements and configuration:
 | Runtime image | Python 3.12 **full** image (not `slim`) — the verification engine creates ephemeral virtualenvs at request time |
 | Build step | `frontend/dist` must exist before start (script builds it if absent; `main.py` logs a warning if it is missing) |
 | Persistence | Mount a persistent disk for `exit_capsule.db`, `generated_capsules/`, and `temp_workspaces/` |
-| Scaling | **Single instance only** — scan progress is tracked in memory |
+| Scaling | **Single instance only** — scans run as in-process background tasks (progress is persisted in SQLite, but tasks are not shared across instances) |
 | Outbound network | PyPI (metadata + venv installs) and `git clone` (remote scans) |
 
 Environment variables (set as platform app settings, not in `.env`):
@@ -177,7 +177,10 @@ Environment variables (set as platform app settings, not in `.env`):
 GEMMA_API_KEY=...                  # optional; tool works deterministically without it
 GITHUB_CLIENT_ID=...               # optional; enables GitHub OAuth
 GITHUB_CLIENT_SECRET=...
-GITHUB_REDIRECT_URI=https://your-domain.com/auth/callback
+APP_BASE_URL=https://your-domain.com   # public origin; OAuth callback is derived from it
+SECRET_KEY=...                     # generate with: python -c "import secrets;print(secrets.token_urlsafe(48))"
+REQUIRE_AUTH=true                  # public deployments: reject API calls without a GitHub session
+ALLOWED_SCAN_ROOTS=/srv/repos      # comma-separated directories local scans may read
 CORS_ORIGINS=https://your-domain.com   # explicit origins for production
 PORT=8000
 ```
@@ -237,23 +240,24 @@ exit-capsule verify requests --candidate httpx
 
 Exit Capsule supports server-side GitHub OAuth for scanning remote private or organization repositories:
 
-1. Create a GitHub OAuth App under **GitHub Settings -> Developer Settings -> OAuth Apps**:
+1. Create a GitHub OAuth App under **GitHub Settings -> Developer Settings -> OAuth Apps**. GitHub allows one callback URL per app, so create one app per environment (local, staging, production):
    - Application Name: `Exit Capsule Workbench`
-   - Homepage URL: `http://localhost:5173`
-   - Authorization callback URL: `http://localhost:5173/auth/callback`
-2. Add your credentials to `backend/.env`:
+   - Homepage URL: `http://localhost:5173` (local) or your public URL
+   - Authorization callback URL: `http://localhost:5173/auth/callback` (local) or `https://your-domain.com/auth/callback` (production)
+2. Add your credentials to `backend/.env` (local) or platform app settings (production):
    ```bash
    GITHUB_CLIENT_ID=your_client_id_here
    GITHUB_CLIENT_SECRET=your_client_secret_here
-   GITHUB_REDIRECT_URI=http://localhost:5173/auth/callback
+   APP_BASE_URL=https://your-domain.com   # production; leave empty locally
    ```
-3. Open the Exit Capsule application, click **"Connect GitHub"**, and select any repository to clone and analyze.
+   The server derives the callback as `<APP_BASE_URL or request origin>/auth/callback`, so a stale `GITHUB_REDIRECT_URI` cannot send users to the wrong host. Set `GITHUB_REDIRECT_URI` only if your registered callback differs from that pattern.
+3. Open the Exit Capsule application, click **"Connect GitHub"**, and select any repository to clone and analyze. Sessions are stored in an HttpOnly cookie; access tokens are encrypted at rest.
 
 ---
 
 ## 6. Running the Automated Test Suite
 
-The project includes unit and integration tests with 100% passing coverage across all subsystems:
+The project includes unit and integration tests across all subsystems:
 
 ```bash
 cd backend

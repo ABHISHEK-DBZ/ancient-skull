@@ -2,6 +2,8 @@ export interface ScanSummary {
   total_dependencies?: number;
   declared_count?: number;
   syntax_errors?: string[];
+  critical_risk_count?: number;
+  high_risk_count?: number;
   completed_at?: number;
 }
 
@@ -53,6 +55,7 @@ export interface DependencyOverview {
   risk_breakdown: RiskBreakdown;
   pypi_metadata: PyPIMetadata;
   usages_count: number;
+  verification_status?: 'VERIFIED' | 'FAILED' | 'INCONCLUSIVE' | 'NOT_VERIFIED' | 'NOT_RUN';
 }
 
 export interface ScanDetails {
@@ -152,6 +155,9 @@ export interface DependencyDetail {
 export interface CapsuleResponse {
   scan_id: string;
   created_at: string;
+  capsule_version?: number;
+  capsule_sha256?: string;
+  previous_seal_sha256?: string | null;
   capsule_data: any;
   capsule_markdown: string;
   download_json_url: string;
@@ -239,7 +245,6 @@ export interface GitHubRepository {
   full_name: string;
   private: boolean;
   html_url: string;
-  clone_url: string;
   description: string;
   default_branch: string;
   language: string;

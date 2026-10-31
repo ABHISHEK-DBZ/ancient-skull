@@ -244,40 +244,119 @@ export const AnalysisResultsPage: React.FC<AnalysisResultsPageProps> = ({
         </div>
       </div>
 
-      {/* Dense Dependency Table */}
-      <div className="workbench-panel" style={{ overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table className="workbench-table">
-            <thead>
-              <tr>
-                <th style={{ width: '28px' }}></th>
-                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('name')}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span>Package Name</span>
-                    <ArrowUpDown size={11} />
-                  </div>
-                </th>
-                <th>Declared Version</th>
-                <th>Latest PyPI Version</th>
-                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('risk')}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span>Risk Score</span>
-                    <ArrowUpDown size={11} />
-                  </div>
-                </th>
-                <th>Evidence Summary</th>
-                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('usage')}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span>AST Usage</span>
-                    <ArrowUpDown size={11} />
-                  </div>
-                </th>
-                <th>Verification State</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map((dep) => {
+      {/* Dense Dependency Table or Empty State */}
+      {dependencies.length === 0 ? (
+        <div className="workbench-card" style={{
+          textAlign: 'center',
+          padding: '48px 24px',
+          margin: '20px 0',
+          border: '1px solid var(--border-color)',
+          background: 'var(--bg-card)'
+        }}>
+          <div style={{
+            width: '56px',
+            height: '56px',
+            borderRadius: '50%',
+            background: 'rgba(255, 184, 77, 0.12)',
+            border: '1px solid rgba(255, 184, 77, 0.35)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: '16px',
+            color: '#FFB84D'
+          }}>
+            <AlertTriangle size={28} />
+          </div>
+
+          <h3 style={{
+            fontSize: '1.2rem',
+            fontWeight: 700,
+            color: 'var(--text-primary)',
+            fontFamily: 'var(--font-display)',
+            marginBottom: '8px'
+          }}>
+            No Python Dependencies Detected (0 Packages)
+          </h3>
+
+          <p style={{
+            color: 'var(--text-secondary)',
+            fontSize: '0.86rem',
+            maxWidth: '560px',
+            margin: '0 auto 16px',
+            lineHeight: 1.6
+          }}>
+            The repository scan completed successfully, but no Python dependency manifests (such as <code>requirements.txt</code>, <code>pyproject.toml</code>, <code>setup.py</code>, or <code>Pipfile</code>) or Python source files were found in <strong>{details.repo_path}</strong>.
+          </p>
+
+          <div style={{
+            display: 'inline-flex',
+            flexDirection: 'column',
+            gap: '8px',
+            textAlign: 'left',
+            background: 'var(--bg-sidebar)',
+            border: '1px solid var(--border-color)',
+            padding: '14px 18px',
+            borderRadius: '6px',
+            fontSize: '0.8rem',
+            color: 'var(--text-secondary)',
+            marginBottom: '24px',
+            maxWidth: '540px'
+          }}>
+            <div style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+              💡 Exit Capsule is built for Python Projects
+            </div>
+            <div>• Make sure the repository contains Python code and dependency manifests.</div>
+            <div>• If you connected GitHub, select a Python repository (e.g. <code>data-predict</code>, <code>Atlas</code>, or <code>gurucortex</code>).</div>
+          </div>
+
+          <div>
+            <button className="btn btn-primary" onClick={onBack} style={{ gap: '8px' }}>
+              <ArrowLeft size={14} />
+              <span>Select or Scan a Python Repository</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="workbench-panel" style={{ overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="workbench-table">
+              <thead>
+                <tr>
+                  <th style={{ width: '28px' }}></th>
+                  <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('name')}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span>Package Name</span>
+                      <ArrowUpDown size={11} />
+                    </div>
+                  </th>
+                  <th>Declared Version</th>
+                  <th>Latest PyPI Version</th>
+                  <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('risk')}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span>Risk Score</span>
+                      <ArrowUpDown size={11} />
+                    </div>
+                  </th>
+                  <th>Evidence Summary</th>
+                  <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('usage')}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span>AST Usage</span>
+                      <ArrowUpDown size={11} />
+                    </div>
+                  </th>
+                  <th>Verification State</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.length === 0 && (
+                  <tr>
+                    <td colSpan={9} style={{ textAlign: 'center', padding: '36px', color: 'var(--text-secondary)' }}>
+                      No dependencies match the search query "{searchTerm}" or selected risk/category filters.
+                    </td>
+                  </tr>
+                )}
+                {sorted.map((dep) => {
                 const isExpanded = expandedPkg === dep.package_name;
                 const risk = dep.risk_breakdown || {
                   score: dep.risk_score || 0,
@@ -339,7 +418,7 @@ export const AnalysisResultsPage: React.FC<AnalysisResultsPageProps> = ({
                       </td>
                       <td>
                         <StatusBadge 
-                          status="VERIFIED" 
+                          status={dep.verification_status || 'NOT_VERIFIED'} 
                           type="check"
                         />
                       </td>
@@ -408,6 +487,7 @@ export const AnalysisResultsPage: React.FC<AnalysisResultsPageProps> = ({
           </table>
         </div>
       </div>
+      )}
     </div>
   );
 };

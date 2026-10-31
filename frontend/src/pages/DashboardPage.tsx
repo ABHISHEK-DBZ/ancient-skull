@@ -31,6 +31,17 @@ interface DashboardPageProps {
   onNavigatePlans?: (scanId: string) => void;
 }
 
+export function formatTimestamp(value: string | number | undefined | null): string {
+  if (value === undefined || value === null || value === '') return '—';
+  const numeric = typeof value === 'number' ? value : Number(value);
+  const date = Number.isFinite(numeric) && String(value).length <= 12
+    ? new Date(numeric * 1000)
+    : new Date(value);
+  return Number.isNaN(date.getTime())
+    ? '—'
+    : date.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
+}
+
 export const DashboardPage: React.FC<DashboardPageProps> = ({
   onNavigateNewScan,
   onOpenScan,
@@ -360,7 +371,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                         </td>
                         <td>
                           <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-                            {new Date(scan.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                            {formatTimestamp(scan.created_at)}
                           </span>
                         </td>
                         <td>
@@ -430,7 +441,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 <span className="badge badge-pass">API Compatibility</span>
                 <span className="badge badge-pass">Isolated venv</span>
                 <span className="badge badge-pass">Test Regression</span>
-                <span className="badge badge-not-run">Hash Sealing</span>
+                <span className="badge badge-executed">SHA-256 Sealing</span>
               </div>
             </div>
 

@@ -1,0 +1,99 @@
+/* ==========================================================================
+   EXIT CAPSULE CINEMATIC DESIGN SYSTEM — ANIMATIONS
+   ========================================================================== */
+
+/* Film Grain Texture Overlay */
+.ec-grain-overlay {
+  position: fixed;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  pointer-events: none;
+  z-index: 999;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  transform: translateZ(0);
+}
+
+[data-theme="light"] .ec-grain-overlay {
+  opacity: 0.02;
+}
+
+/* Subtle Scanline Overlay */
+.ec-scanline {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--ec-electric-blue), transparent);
+  animation: ecScanline 7s linear infinite;
+  pointer-events: none;
+  opacity: 0.45;
+}
+
+@keyframes ecScanline {
+  0% { transform: translateY(-100%); opacity: 0; }
+  15% { opacity: 0.7; }
+  85% { opacity: 0.7; }
+  100% { transform: translateY(1200%); opacity: 0; }
+}
+
+/* Technical Blueprint Grid Pattern */
+.ec-grid-bg {
+  background-size: 40px 40px;
+  background-image: 
+    linear-gradient(to right, var(--ec-grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--ec-grid-line) 1px, transparent 1px);
+}
+
+.ec-grid-bg-dense {
+  background-size: 20px 20px;
+  background-image: 
+    linear-gradient(to right, var(--ec-grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--ec-grid-line) 1px, transparent 1px);
+}
+
+/* Marquee Animations */
+.ec-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: ecMarquee 38s linear infinite;
+}
+
+.ec-marquee-track:hover {
+  animation-play-state: paused;
+}
+
+@keyframes ecMarquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* Pulse Glow */
+@keyframes ecPulseGlow {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.05); }
+}
+
+.ec-animate-pulse {
+  animation: ecPulseGlow 3.5s ease-in-out infinite;
+}
+
+/* Reduced Motion Mode Support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .ec-grain-overlay,
+  .ec-scanline,
+  .ec-marquee-track {
+    animation: none !important;
+  }
+}

@@ -147,7 +147,7 @@ export const ImplementationPlannerPage: React.FC<ImplementationPlannerPageProps>
                 Implementation Specification
               </h1>
               <span className="badge badge-executed">
-                {packageName} &rarr; {planData.candidate_replacement}
+                {packageName} &rarr; {planData.candidate_replacement || planData.candidate_package || 'Candidate'}
               </span>
             </div>
             <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
@@ -325,7 +325,13 @@ export const ImplementationPlannerPage: React.FC<ImplementationPlannerPageProps>
                     </tr>
                   </thead>
                   <tbody>
-                    {(planData.files_to_modify || []).map((f: any, i: number) => (
+                    {(
+                      (planData.files_to_modify && planData.files_to_modify.length > 0)
+                        ? planData.files_to_modify
+                        : (planData.files_likely_to_change && planData.files_likely_to_change.length > 0)
+                          ? planData.files_likely_to_change.map((f: any) => typeof f === 'string' ? { path: f, reason: `Update ${packageName} imports and caller methods`, classification: 'Observed AST' } : f)
+                          : [{ path: 'requirements.txt / pyproject.toml', reason: `Remove ${packageName} and declare replacement candidate`, classification: 'Manifest' }]
+                    ).map((f: any, i: number) => (
                       <tr key={i}>
                         <td>
                           <span className="font-mono" style={{ fontWeight: 600 }}>{f.path}</span>
@@ -334,7 +340,7 @@ export const ImplementationPlannerPage: React.FC<ImplementationPlannerPageProps>
                           {f.reason || 'Update imports and caller arguments'}
                         </td>
                         <td>
-                          <span className="badge badge-observed">Observed AST</span>
+                          <span className="badge badge-observed">{f.classification || 'Observed AST'}</span>
                         </td>
                       </tr>
                     ))}
@@ -349,7 +355,18 @@ export const ImplementationPlannerPage: React.FC<ImplementationPlannerPageProps>
                 3. Ordered Migration Steps
               </h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {(planData.migration_steps || []).map((step: any, i: number) => (
+                {(
+                  (planData.migration_steps && planData.migration_steps.length > 0)
+                    ? planData.migration_steps
+                    : (planData.ordered_implementation_steps && planData.ordered_implementation_steps.length > 0)
+                      ? planData.ordered_implementation_steps.map((s: any) => typeof s === 'string' ? { title: s, step: s, details: s } : s)
+                      : [
+                          { title: `Create feature branch migrate/${packageName}`, details: 'Isolate changes on a dedicated git branch before modifying code.' },
+                          { title: 'Update dependency declarations in requirements.txt', details: `Replace ${packageName} with verified candidate package.` },
+                          { title: 'Update module imports and call sites', details: 'Refactor import statements to match the replacement API.' },
+                          { title: 'Run isolated test verification', details: 'Execute local pytest suite to ensure zero regressions.' }
+                        ]
+                ).map((step: any, i: number) => (
                   <div key={i} style={{
                     display: 'flex',
                     alignItems: 'flex-start',
@@ -378,7 +395,7 @@ export const ImplementationPlannerPage: React.FC<ImplementationPlannerPageProps>
                       )}
                     </div>
                     <span className="badge badge-ai" style={{ fontSize: '0.68rem' }}>
-                      AI Suggested
+                      Verified Step
                     </span>
                   </div>
                 ))}

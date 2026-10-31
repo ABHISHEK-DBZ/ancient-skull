@@ -32,23 +32,16 @@ interface PipelineStage {
 }
 
 const PIPELINE_STAGES: PipelineStage[] = [
-  { id: 1, name: 'Repository Discovery', desc: 'Scan directory tree, locate Python source files and manifests', minPct: 10 },
-  { id: 2, name: 'Dependency Inventory', desc: 'Parse requirements.txt, pyproject.toml, and setup.py pins', minPct: 25 },
-  { id: 3, name: 'AST Usage Analysis', desc: 'Extract call sites, imported modules, and enclosing scopes', minPct: 45 },
-  { id: 4, name: 'Package Metadata Retrieval', desc: 'Query PyPI registries for release dates, yank status, and CVEs', minPct: 65 },
-  { id: 5, name: 'Gemma 4 Migration Proposal', desc: 'Synthesize context into Gemma 4 for replacement candidates', minPct: 80 },
-  { id: 6, name: 'Independent Verification', desc: 'Run 10-point deterministic compatibility checks in sandbox', minPct: 90 },
-  { id: 7, name: 'Test Execution', desc: 'Execute ephemeral test harnesses and capture output logs', minPct: 95 },
-  { id: 8, name: 'Exit Capsule Generation', desc: 'Seal JSON artifact and generate human-readable Markdown', minPct: 100 }
+  { id: 1, name: 'Dependency Discovery', desc: 'Parse requirements.txt, pyproject.toml, and setup.py declarations', minPct: 15 },
+  { id: 2, name: 'AST Usage Analysis', desc: 'Extract imports, call sites, and enclosing scopes', minPct: 35 },
+  { id: 3, name: 'Metadata & Risk Scoring', desc: 'Query PyPI for release recency, yank status, and version lag', minPct: 60 },
+  { id: 4, name: 'Gemma 4 Migration Proposal', desc: 'Propose replacement candidates when AI is enabled', minPct: 80 },
+  { id: 5, name: 'Exit Capsule Generation', desc: 'Seal the JSON artifact and generate the Markdown report', minPct: 95 }
 ];
 
 export const NewScanPage: React.FC<NewScanPageProps> = ({ onScanCompleted, onCancel }) => {
   const [repoPath, setRepoPath] = useState('');
-  const [analysisLabel, setAnalysisLabel] = useState('');
-  const [manifestFormat, setManifestFormat] = useState('auto');
   const [runAi, setRunAi] = useState(true);
-  const [runLiveTests, setRunLiveTests] = useState(true);
-  const [fetchPyPi, setFetchPyPi] = useState(true);
   const [settings, setSettings] = useState<SystemSettings | null>(null);
 
   const [scanning, setScanning] = useState(false);
@@ -134,8 +127,7 @@ export const NewScanPage: React.FC<NewScanPageProps> = ({ onScanCompleted, onCan
   };
 
   const fillSamplePath = () => {
-    setRepoPath('backend/tests/fixtures/sample_project');
-    setAnalysisLabel('Sample LinkWatch Test Suite');
+    setRepoPath('tests/fixtures/sample_project');
   };
 
   return (
@@ -208,22 +200,6 @@ export const NewScanPage: React.FC<NewScanPageProps> = ({ onScanCompleted, onCan
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                   <button
                     type="button"
-                    onClick={() => setRepoPath('https://github.com/rishrek/LinkWatch')}
-                    style={{
-                      background: '#171815',
-                      color: '#FAFAF8',
-                      border: 'none',
-                      padding: '3px 8px',
-                      borderRadius: '4px',
-                      fontSize: '0.72rem',
-                      fontWeight: 600,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Paste LinkWatch URL
-                  </button>
-                  <button
-                    type="button"
                     onClick={fillSamplePath}
                     style={{
                       background: 'transparent',
@@ -247,53 +223,8 @@ export const NewScanPage: React.FC<NewScanPageProps> = ({ onScanCompleted, onCan
                 required
               />
               <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                Paste any public GitHub repository URL (e.g. <code>https://github.com/rishrek/LinkWatch</code>) or local folder path.
+                Paste any public GitHub repository URL or a local folder path.
               </p>
-            </div>
-
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '6px' }}>
-                Analysis Label (Optional)
-              </label>
-              <input
-                type="text"
-                className="input-field"
-                placeholder="e.g. Q4 Dependency Audit or Release 2.4 Prep"
-                value={analysisLabel}
-                onChange={(e) => setAnalysisLabel(e.target.value)}
-              />
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '6px' }}>
-                  Target Python Version
-                </label>
-                <select
-                  className="input-field font-mono"
-                  value="3.12"
-                  disabled
-                  style={{ background: 'var(--bg-sidebar)', color: 'var(--text-secondary)' }}
-                >
-                  <option value="3.12">Python 3.12 (Host Environment)</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '6px' }}>
-                  Manifest Discovery Mode
-                </label>
-                <select
-                  className="input-field"
-                  value={manifestFormat}
-                  onChange={(e) => setManifestFormat(e.target.value)}
-                >
-                  <option value="auto">Auto-detect (All manifests)</option>
-                  <option value="requirements">requirements.txt only</option>
-                  <option value="pyproject">pyproject.toml only</option>
-                  <option value="setup">setup.py only</option>
-                </select>
-              </div>
             </div>
 
             <div style={{
@@ -311,23 +242,6 @@ export const NewScanPage: React.FC<NewScanPageProps> = ({ onScanCompleted, onCan
               <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
                 <input
                   type="checkbox"
-                  checked={fetchPyPi}
-                  onChange={(e) => setFetchPyPi(e.target.checked)}
-                  style={{ marginTop: '3px' }}
-                />
-                <div>
-                  <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    PyPI Registry Metadata & CVE Audit
-                  </div>
-                  <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
-                    Queries official PyPI warehouse API for release recency, yank flags, and maintenance telemetry.
-                  </div>
-                </div>
-              </label>
-
-              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
                   checked={runAi}
                   onChange={(e) => setRunAi(e.target.checked)}
                   style={{ marginTop: '3px' }}
@@ -341,23 +255,6 @@ export const NewScanPage: React.FC<NewScanPageProps> = ({ onScanCompleted, onCan
                   </div>
                   <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
                     Uses Gemma 4 with AST call-site context to propose drop-in package replacements.
-                  </div>
-                </div>
-              </label>
-
-              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={runLiveTests}
-                  onChange={(e) => setRunLiveTests(e.target.checked)}
-                  style={{ marginTop: '3px' }}
-                />
-                <div>
-                  <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    Isolated Test Execution Harness
-                  </div>
-                  <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
-                    Executes original repository tests in an ephemeral virtual environment to record baseline evidence.
                   </div>
                 </div>
               </label>
@@ -406,7 +303,7 @@ export const NewScanPage: React.FC<NewScanPageProps> = ({ onScanCompleted, onCan
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.78rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: 'var(--text-secondary)' }}>Backend Engine:</span>
-                  <span style={{ fontWeight: 600, color: 'var(--status-pass-text)' }}>FastAPI 0.115</span>
+                  <span style={{ fontWeight: 600, color: 'var(--status-pass-text)' }}>FastAPI (running)</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: 'var(--text-secondary)' }}>AI Model:</span>
@@ -416,7 +313,7 @@ export const NewScanPage: React.FC<NewScanPageProps> = ({ onScanCompleted, onCan
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: 'var(--text-secondary)' }}>Isolation:</span>
-                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Temporary Venv / Subprocess</span>
+                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Temporary copies, host interpreter</span>
                 </div>
               </div>
             </div>
@@ -464,7 +361,7 @@ export const NewScanPage: React.FC<NewScanPageProps> = ({ onScanCompleted, onCan
               }} />
             </div>
 
-            {/* Compact Sequence of 8 Stages */}
+            {/* Compact Sequence of Pipeline Stages */}
             <div style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',

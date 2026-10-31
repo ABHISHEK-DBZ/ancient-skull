@@ -44,9 +44,24 @@ def validate_safe_path(base_dir: str | Path, target_path: str | Path) -> Path:
     return target
 
 def is_safe_repo_path(repo_path: str | Path) -> bool:
-    """Validates that a repo directory exists and is a directory."""
-    path = Path(repo_path).resolve()
-    return path.exists() and path.is_dir()
+    """Validate that a repo directory exists and sits inside an allowed root.
+
+    With ALLOWED_SCAN_ROOTS empty the local single-user mode accepts any
+    directory. Public deployments must set the allowlist so the API cannot
+    read arbitrary server paths.
+    """
+    from app.config import settings
+
+    try:
+        path = Path(repo_path).expanduser().resolve()
+    except (OSError, RuntimeError):
+        return False
+    if not path.exists() or not path.is_dir():
+        return False
+    roots = settings.allowed_scan_roots
+    if not roots:
+        return not settings.REQUIRE_AUTH
+    return any(path == root or root in path.parents for root in roots)
 
 def execute_isolated_command(
     cmd: list[str],

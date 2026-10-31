@@ -1,7 +1,10 @@
 import json
 import time
 from pathlib import Path
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
+from app.core.auth import enforce_scan_access
+from app.core.clock import iso_now
+from app.core.security import is_safe_repo_path
 from app.database import get_db_connection
 from app.models.schemas import PostVerifyRequest
 from app.post_verify.post_verifier import run_post_implementation_verification
@@ -10,21 +13,23 @@ from app.capsule.generator import assemble_and_save_capsule
 router = APIRouter(prefix="/api/scans", tags=["PostVerification"])
 
 @router.post("/{scan_id}/post-verify")
-def post_verify_working_copy(scan_id: str, req: PostVerifyRequest):
+def post_verify_working_copy(scan_id: str, req: PostVerifyRequest, request: Request):
     """
     Verify developer's modified working copy against the approved plan and baseline tests.
     """
+    enforce_scan_access(request, scan_id)
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT repo_path FROM scans WHERE scan_id = ?", (scan_id,))
+        cursor.execute("SELECT repo_path, local_path FROM scans WHERE scan_id = ?", (scan_id,))
         scan_row = cursor.fetchone()
         if not scan_row:
             raise HTTPException(status_code=404, detail="Scan not found")
-        orig_repo = scan_row["repo_path"]
+        orig_repo = scan_row["local_path"] or scan_row["repo_path"]
+
+    if not is_safe_repo_path(req.working_copy_path):
+        raise HTTPException(status_code=400, detail=f"Working copy is not in an allowed scan root: {req.working_copy_path}")
 
     working_path = Path(req.working_copy_path).resolve()
-    if not working_path.exists() or not working_path.is_dir():
-        raise HTTPException(status_code=400, detail=f"Invalid working copy directory: {req.working_copy_path}")
 
     # Run post verification
     result = run_post_implementation_verification(
@@ -49,7 +54,7 @@ def post_verify_working_copy(scan_id: str, req: PostVerifyRequest):
             result.status,
             json.dumps(result.checks),
             result.report_markdown,
-            str(time.time())
+            iso_now()
         ))
         conn.commit()
 
@@ -59,8 +64,9 @@ def post_verify_working_copy(scan_id: str, req: PostVerifyRequest):
     return result.to_dict()
 
 @router.get("/{scan_id}/post-verify")
-def get_post_verifications(scan_id: str):
+def get_post_verifications(scan_id: str, request: Request):
     """List all post-implementation verification runs for a scan."""
+    enforce_scan_access(request, scan_id)
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("""

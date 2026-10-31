@@ -17,11 +17,14 @@ import {
   Terminal,
   ExternalLink,
   Plus,
-  Github
+  Github,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { ScanItem, SystemSettings } from '../api/types';
 import { listScans, getSettings } from '../api/client';
 import { GitHubModal } from './GitHubModal';
+import { useTheme } from '../context/ThemeContext';
 
 export type AppTab = 
   | 'overview' 
@@ -52,6 +55,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   onSelectScan,
   children
 }) => {
+  const { theme, toggleTheme } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [githubModalOpen, setGithubModalOpen] = useState(false);
@@ -113,20 +117,20 @@ export const AppShell: React.FC<AppShellProps> = ({
               width: '28px',
               height: '28px',
               borderRadius: '4px',
-              background: '#171815',
+              background: 'var(--text-primary)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               flexShrink: 0
             }}>
-              <ShieldCheck size={16} color="#FAFAF8" strokeWidth={2.2} />
+              <ShieldCheck size={16} color="var(--text-inverse)" strokeWidth={2.2} />
             </div>
             {!collapsed && (
               <div style={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>
-                <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#171815', letterSpacing: '-0.01em', fontFamily: 'var(--font-display)' }}>
+                <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)', letterSpacing: '-0.01em', fontFamily: 'var(--font-display)' }}>
                   Exit Capsule
                 </div>
-                <div style={{ fontSize: '0.68rem', color: '#696B66', fontFamily: 'var(--font-mono)' }}>
+                <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
                   Workbench v1.0
                 </div>
               </div>
@@ -139,7 +143,7 @@ export const AppShell: React.FC<AppShellProps> = ({
               style={{
                 background: 'transparent',
                 border: 'none',
-                color: '#8E9089',
+                color: 'var(--text-muted)',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -160,7 +164,7 @@ export const AppShell: React.FC<AppShellProps> = ({
               style={{
                 background: 'transparent',
                 border: 'none',
-                color: '#8E9089',
+                color: 'var(--text-muted)',
                 cursor: 'pointer',
                 padding: '4px'
               }}
@@ -198,8 +202,8 @@ export const AppShell: React.FC<AppShellProps> = ({
                   padding: collapsed ? '8px 0' : '8px 12px',
                   justifyContent: collapsed ? 'center' : 'flex-start',
                   borderRadius: '5px',
-                  background: isActive ? '#FFFFFF' : 'transparent',
-                  color: isActive ? '#171815' : '#696B66',
+                  background: isActive ? 'var(--bg-surface)' : 'transparent',
+                  color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
                   border: isActive ? '1px solid var(--border-color)' : '1px solid transparent',
                   cursor: 'pointer',
                   fontSize: '0.82rem',
@@ -211,7 +215,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                 }}
                 title={collapsed ? item.label : undefined}
               >
-                <Icon size={16} color={isActive ? '#171815' : '#8E9089'} />
+                <Icon size={16} color={isActive ? 'var(--text-primary)' : 'var(--text-muted)'} />
                 {!collapsed && (
                   <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {item.label}
@@ -225,7 +229,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                     bottom: '20%',
                     width: '3px',
                     borderRadius: '0 2px 2px 0',
-                    background: '#171815'
+                    background: 'var(--text-primary)'
                   }} />
                 )}
               </button>
@@ -250,16 +254,16 @@ export const AppShell: React.FC<AppShellProps> = ({
               padding: collapsed ? '6px 0' : '7px 10px',
               justifyContent: collapsed ? 'center' : 'flex-start',
               borderRadius: '4px',
-              background: '#FFFFFF',
+              background: 'var(--bg-surface)',
               border: '1px solid var(--border-color)',
-              color: '#696B66',
+              color: 'var(--text-secondary)',
               cursor: 'pointer',
               fontSize: '0.78rem',
               width: '100%'
             }}
             title="Return to Public Website"
           >
-            <Home size={14} color="#8E9089" />
+            <Home size={14} color="var(--text-muted)" />
             {!collapsed && <span>Public Overview</span>}
           </button>
         </div>
@@ -289,7 +293,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                 display: 'none',
                 background: 'transparent',
                 border: 'none',
-                color: '#171815',
+                color: 'var(--text-primary)',
                 cursor: 'pointer',
                 padding: '4px'
               }}
@@ -300,18 +304,18 @@ export const AppShell: React.FC<AppShellProps> = ({
 
             {/* Repository Selector */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-              <GitBranch size={15} color="#696B66" style={{ flexShrink: 0 }} />
-              <span style={{ fontSize: '0.78rem', color: '#8E9089', display: 'none' }} className="repo-label">
+              <GitBranch size={15} color="var(--text-secondary)" style={{ flexShrink: 0 }} />
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'none' }} className="repo-label">
                 Repository:
               </span>
               <select
                 value={activeScanId || (activeScan?.scan_id || '')}
                 onChange={(e) => onSelectScan(e.target.value)}
                 style={{
-                  background: '#FFFFFF',
+                  background: 'var(--bg-surface)',
                   border: '1px solid var(--border-color)',
                   borderRadius: '4px',
-                  color: '#171815',
+                  color: 'var(--text-primary)',
                   fontSize: '0.8rem',
                   fontFamily: 'var(--font-mono)',
                   padding: '4px 8px',
@@ -369,10 +373,10 @@ export const AppShell: React.FC<AppShellProps> = ({
                 borderRadius: '50%',
                 background: aiReady ? '#166534' : '#854D0E'
               }} />
-              <span style={{ color: '#696B66' }}>Model:</span>
+              <span style={{ color: 'var(--text-secondary)' }}>Model:</span>
               <span style={{
                 fontWeight: 600,
-                color: '#171815'
+                color: 'var(--text-primary)'
               }}>
                 {aiReady ? 'Gemma 4 (Ready)' : 'Deterministic'}
               </span>
@@ -384,10 +388,10 @@ export const AppShell: React.FC<AppShellProps> = ({
               alignItems: 'center',
               gap: '5px',
               fontSize: '0.72rem',
-              color: '#696B66',
+              color: 'var(--text-secondary)',
               padding: '3px 8px',
               borderRadius: '4px',
-              background: '#FFFFFF',
+              background: 'var(--bg-surface)',
               border: '1px solid var(--border-color)'
             }}>
               <Terminal size={12} color="#95ABA7" />
@@ -412,6 +416,26 @@ export const AppShell: React.FC<AppShellProps> = ({
             >
               <Plus size={13} />
               <span>New Analysis</span>
+            </button>
+
+            {/* Dark Mode Toggle */}
+            <button
+              onClick={toggleTheme}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '32px',
+                height: '32px',
+                borderRadius: '4px',
+                background: 'var(--bg-subtle)',
+                border: '1px solid var(--border-color)',
+                color: theme === 'dark' ? '#D8FF45' : 'var(--text-primary)',
+                cursor: 'pointer'
+              }}
+              title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            >
+              {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
             </button>
           </div>
         </header>
@@ -438,8 +462,8 @@ export const AppShell: React.FC<AppShellProps> = ({
                   alignItems: 'center',
                   gap: '10px',
                   padding: '8px 12px',
-                  background: currentTab === item.id ? '#FFFFFF' : 'transparent',
-                  color: currentTab === item.id ? '#171815' : '#696B66',
+                  background: currentTab === item.id ? 'var(--bg-surface)' : 'transparent',
+                  color: currentTab === item.id ? 'var(--text-primary)' : 'var(--text-secondary)',
                   border: currentTab === item.id ? '1px solid var(--border-color)' : 'none',
                   borderRadius: '4px',
                   cursor: 'pointer',
@@ -460,7 +484,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                 alignItems: 'center',
                 gap: '10px',
                 padding: '8px 12px',
-                color: '#696B66',
+                color: 'var(--text-secondary)',
                 background: 'transparent',
                 border: 'none',
                 cursor: 'pointer',

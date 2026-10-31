@@ -79,7 +79,7 @@ export const GitHubModal: React.FC<GitHubModalProps> = ({ isOpen, onClose, onSca
     setCloningRepo(repo.full_name);
     setError(null);
     try {
-      const res = await cloneAndScanGitHubRepo(repo.full_name, repo.clone_url, repo.default_branch, false);
+      const res = await cloneAndScanGitHubRepo(repo.full_name, repo.default_branch, false);
       onScanStarted(res.scan_id);
       onClose();
     } catch (err: any) {
@@ -202,7 +202,7 @@ export const GitHubModal: React.FC<GitHubModalProps> = ({ isOpen, onClose, onSca
                   }}>
 {`GITHUB_CLIENT_ID=your_client_id_here
 GITHUB_CLIENT_SECRET=your_client_secret_here
-GITHUB_REDIRECT_URI=http://localhost:5173/auth/callback`}
+APP_BASE_URL=https://your-public-origin.example.com`}
                   </pre>
                   <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
                     Local analysis of any cloned repository or path remains 100% functional without GitHub credentials.
@@ -332,12 +332,23 @@ GITHUB_REDIRECT_URI=http://localhost:5173/auth/callback`}
                         }}>
                           {repo.description}
                         </p>
-                        <div style={{ display: 'flex', gap: '12px', marginTop: '6px', fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px', fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
                           <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                             <GitBranch size={11} /> {repo.default_branch}
                           </span>
                           {repo.language && (
-                            <span>{repo.language}</span>
+                            <span style={{
+                              padding: '1px 6px',
+                              borderRadius: '4px',
+                              fontSize: '0.7rem',
+                              fontFamily: 'var(--font-mono)',
+                              background: repo.language.toLowerCase() === 'python' ? 'rgba(81, 214, 160, 0.15)' : 'var(--bg-subtle)',
+                              color: repo.language.toLowerCase() === 'python' ? '#51D6A0' : 'var(--text-muted)',
+                              border: repo.language.toLowerCase() === 'python' ? '1px solid rgba(81, 214, 160, 0.3)' : '1px solid var(--border-color)',
+                              fontWeight: repo.language.toLowerCase() === 'python' ? 600 : 400
+                            }}>
+                              {repo.language.toLowerCase() === 'python' ? '🐍 Python' : repo.language}
+                            </span>
                           )}
                         </div>
                       </div>

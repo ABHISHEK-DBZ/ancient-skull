@@ -1,5 +1,5 @@
 import re
-from typing import Dict, Optional
+from typing import Dict
 
 # Standard PEP 503 normalization
 def normalize_package_name(name: str) -> str:
@@ -36,16 +36,13 @@ DEFAULT_IMPORT_TO_DISTRIBUTION: Dict[str, str] = {
     "psycopg2": "psycopg2-binary",
 }
 
-def map_import_to_package(import_name: str, custom_mappings: Optional[Dict[str, str]] = None) -> str:
+def map_import_to_package(import_name: str) -> str:
     """
     Map an observed import name to a canonical PyPI distribution name.
     If no special mapping exists, normalize the import name.
     """
     top_import = import_name.split(".")[0].strip().lower()
-    
-    if custom_mappings and top_import in custom_mappings:
-        return normalize_package_name(custom_mappings[top_import])
-        
+
     if top_import in DEFAULT_IMPORT_TO_DISTRIBUTION:
         return normalize_package_name(DEFAULT_IMPORT_TO_DISTRIBUTION[top_import])
         

@@ -1,61 +1,62 @@
-import os
-import uuid
-import time
 import json
 import shutil
-import asyncio
 import subprocess
+import time
+import uuid
 from pathlib import Path
 from typing import Dict, Any, List
-from fastapi import APIRouter, HTTPException, BackgroundTasks
-from app.config import settings
-from app.database import get_db_connection
-from app.models.schemas import StartScanRequest, StartScanResponse, ScanProgressResponse
-from app.core.security import is_safe_repo_path
-from app.scanner.discovery import scan_declared_dependencies
-from app.scanner.ast_analyzer import analyze_repository_ast
-from app.metadata.pypi_client import fetch_pypi_metadata
-from app.metadata.risk_scorer import calculate_risk_score
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+
 from app.ai.gemma_client import GemmaClient
 from app.capsule.generator import assemble_and_save_capsule
+from app.config import settings
+from app.core.auth import enforce_scan_access, get_session
+from app.core.clock import iso_now
+from app.core.security import is_safe_repo_path, redact_secrets
+from app.database import get_db_connection
+from app.metadata.pypi_client import fetch_pypi_metadata
+from app.metadata.risk_scorer import calculate_risk_score
+from app.models.schemas import ScanProgressResponse, StartScanRequest, StartScanResponse
+from app.scanner.ast_analyzer import analyze_repository_ast
+from app.scanner.discovery import scan_declared_dependencies
+from app.scanner.git_fetcher import fetch_git_repository
 
 router = APIRouter(prefix="/api/scans", tags=["Scans"])
 
-# In-memory progress tracking
-SCAN_PROGRESS: Dict[str, Dict[str, Any]] = {}
 
-def execute_scan_pipeline(scan_id: str, repo_path_str: str, run_ai: bool, custom_mappings: Dict[str, str] = None):
+def _set_progress(scan_id: str, step: str, pct: int, status: str = "scanning", error: str | None = None) -> None:
+    with get_db_connection() as conn:
+        conn.execute(
+            "UPDATE scans SET status = ?, progress_pct = ?, current_step = ?, error_message = ? WHERE scan_id = ?",
+            (status, pct, step, error, scan_id),
+        )
+        conn.commit()
+
+
+def execute_scan_pipeline(scan_id: str, repo_path_str: str, run_ai: bool = False):
     """Background worker executing the complete scan pipeline."""
     repo = Path(repo_path_str).resolve()
-    
-    def update_progress(step: str, pct: int):
-        SCAN_PROGRESS[scan_id] = {
-            "status": "scanning",
-            "progress_pct": pct,
-            "current_step": step,
-            "error_message": None
-        }
 
     try:
-        update_progress("1/5: Discovering declared dependencies...", 15)
+        _set_progress(scan_id, "1/5: Discovering declared dependencies...", 15)
         declared_deps = scan_declared_dependencies(repo)
 
-        update_progress("2/5: Performing static AST code usage analysis...", 35)
+        _set_progress(scan_id, "2/5: Performing static AST code usage analysis...", 35)
         usages_by_pkg, observed_pkgs, syntax_errors = analyze_repository_ast(repo)
 
-        update_progress("3/5: Querying package metadata & calculating risk scores...", 60)
+        _set_progress(scan_id, "3/5: Querying package metadata & calculating risk scores...", 60)
         all_pkg_names = set(declared_deps.keys()).union(observed_pkgs)
-        
+
         dep_records = []
         with get_db_connection() as conn:
             cursor = conn.cursor()
-            
+
             for pkg in all_pkg_names:
                 decl_info = declared_deps.get(pkg)
                 is_declared = decl_info is not None
                 is_observed = pkg in usages_by_pkg
-                
-                # Categorization logic
+
                 if is_declared and is_observed:
                     category = decl_info.category
                 elif is_declared and not is_observed:
@@ -68,7 +69,7 @@ def execute_scan_pipeline(scan_id: str, repo_path_str: str, run_ai: bool, custom
                 pinned_ver = decl_info.version_spec if decl_info else None
                 meta = fetch_pypi_metadata(pkg, pinned_version=pinned_ver)
                 risk_report = calculate_risk_score(meta, pinned_version=pinned_ver)
-                
+
                 usages = [u.to_dict() for u in usages_by_pkg.get(pkg, [])]
 
                 cursor.execute("""
@@ -84,41 +85,37 @@ def execute_scan_pipeline(scan_id: str, repo_path_str: str, run_ai: bool, custom
                     json.dumps(risk_report.to_dict()),
                     json.dumps(meta),
                     json.dumps(usages),
-                    str(time.time())
+                    iso_now(),
                 ))
                 dep_records.append({
                     "package_name": pkg,
                     "risk_score": risk_report.overall_score,
                     "level": risk_report.level,
                     "category": category,
-                    "usages": usages
+                    "usages": usages,
                 })
             conn.commit()
 
-        # Step 4: AI Recommendations if requested
         if run_ai:
-            update_progress("4/5: Requesting migration plans from Gemma 4...", 80)
+            _set_progress(scan_id, "4/5: Requesting migration plans from Gemma 4...", 80)
             gemma = GemmaClient()
-            configured, msg = gemma.is_configured()
+            configured, _ = gemma.is_configured()
             if configured:
-                # Target dependencies with HIGH or CRITICAL risk scores
                 high_risk = [d for d in dep_records if d["risk_score"] >= 40.0]
                 if not high_risk and dep_records:
-                    # If none high, pick the highest risk one
                     high_risk = sorted(dep_records, key=lambda x: x["risk_score"], reverse=True)[:1]
 
-                for target in high_risk[:2]:  # bound AI calls
+                for target in high_risk[:2]:
                     pname = target["package_name"]
                     try:
                         proposal = gemma.plan_migration(
                             package_name=pname,
                             pinned_version=None,
                             risk_summary=f"Risk Score {target['risk_score']} ({target['level']})",
-                            ast_usages=target["usages"]
+                            ast_usages=target["usages"],
                         )
                         with get_db_connection() as conn:
-                            cursor = conn.cursor()
-                            cursor.execute("""
+                            conn.execute("""
                                 INSERT OR REPLACE INTO ai_recommendations
                                 (scan_id, package_name, candidate_replacement, model_name, recommendation_json, created_at)
                                 VALUES (?, ?, ?, ?, ?, ?)
@@ -128,160 +125,132 @@ def execute_scan_pipeline(scan_id: str, repo_path_str: str, run_ai: bool, custom
                                 proposal.candidate_replacement,
                                 gemma.model,
                                 proposal.json(),
-                                str(time.time())
+                                iso_now(),
                             ))
                             conn.commit()
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        # AI is optional: keep the deterministic scan usable, but
+                        # leave the sanitized reason on the progress record.
+                        _set_progress(scan_id, f"4/5: AI proposal skipped ({redact_secrets(str(exc))[:160]})", 84)
         else:
-            update_progress("4/5: Skipping AI migration planning (disabled)...", 80)
+            _set_progress(scan_id, "4/5: Skipping AI migration planning (disabled)...", 80)
 
-        # Step 5: Assemble and save capsule
-        update_progress("5/5: Assembling Dependency Exit Capsule...", 95)
+        _set_progress(scan_id, "5/5: Assembling Dependency Exit Capsule...", 95)
         assemble_and_save_capsule(scan_id)
 
-        # Complete
+        summary = {
+            "total_dependencies": len(all_pkg_names),
+            "declared_count": len(declared_deps),
+            "syntax_errors": syntax_errors,
+            "critical_risk_count": sum(1 for d in dep_records if d["level"] == "CRITICAL"),
+            "high_risk_count": sum(1 for d in dep_records if d["level"] == "HIGH"),
+            "completed_at": time.time(),
+        }
         with get_db_connection() as conn:
-            cursor = conn.cursor()
-            summary = {
-                "total_dependencies": len(all_pkg_names),
-                "declared_count": len(declared_deps),
-                "syntax_errors": syntax_errors,
-                "completed_at": time.time()
-            }
-            cursor.execute("""
-                UPDATE scans SET status = 'completed', summary_json = ? WHERE scan_id = ?
-            """, (json.dumps(summary), scan_id))
+            conn.execute(
+                "UPDATE scans SET status = 'completed', summary_json = ?, progress_pct = 100, current_step = ?, error_message = NULL WHERE scan_id = ?",
+                (json.dumps(summary), "Scan and capsule generation complete.", scan_id),
+            )
             conn.commit()
 
-        SCAN_PROGRESS[scan_id] = {
-            "status": "completed",
-            "progress_pct": 100,
-            "current_step": "Scan and capsule generation complete.",
-            "error_message": None
-        }
-
-    except Exception as e:
+    except Exception as exc:
+        message = redact_secrets(str(exc))
         with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                UPDATE scans SET status = 'failed', error_message = ? WHERE scan_id = ?
-            """, (str(e), scan_id))
+            conn.execute(
+                "UPDATE scans SET status = 'failed', error_message = ?, progress_pct = 100, current_step = ? WHERE scan_id = ?",
+                (message, f"Scan failed: {message}", scan_id),
+            )
             conn.commit()
-        SCAN_PROGRESS[scan_id] = {
-            "status": "failed",
-            "progress_pct": 100,
-            "current_step": f"Scan failed: {str(e)}",
-            "error_message": str(e)
-        }
+
 
 @router.post("/start", response_model=StartScanResponse)
-def start_scan(req: StartScanRequest, background_tasks: BackgroundTasks):
-    """Start scanning a local repository or remote GitHub repository URL."""
+def start_scan(req: StartScanRequest, request: Request, background_tasks: BackgroundTasks):
+    """Start scanning a local repository or a public GitHub repository URL."""
     target_repo = req.repo_path.strip()
     is_git_url = any(target_repo.startswith(p) for p in ("http://", "https://", "git@", "github.com"))
-    
+    session = get_session(request)
+    owner_id = str(session.get("github_id")) if session else None
+    scan_id = f"scan_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+
     if is_git_url:
         if not target_repo.startswith("http") and not target_repo.startswith("git@"):
             target_repo = "https://" + target_repo
-        
         parts = target_repo.rstrip("/").replace(".git", "").split("/")
         repo_name = f"{parts[-2]}_{parts[-1]}" if len(parts) >= 2 else parts[-1]
-        workspace_dir = Path(settings.TEMP_WORKSPACES_DIR) / f"git_{repo_name}"
-        
-        # Check if already cloned, otherwise clone now
-        if not workspace_dir.exists() or not (workspace_dir / ".git").exists():
-            workspace_dir.mkdir(parents=True, exist_ok=True)
-            try:
-                cmd = ["git", "clone", "--depth", "1", target_repo, str(workspace_dir)]
-                proc = subprocess.run(cmd, capture_output=True, text=True, timeout=90)
-                if proc.returncode != 0:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Failed to clone repository from '{target_repo}': {proc.stderr[:200]}"
-                    )
-            except HTTPException:
-                raise
-            except Exception as e:
-                raise HTTPException(status_code=400, detail=f"Git clone error: {str(e)}")
-        
+
+        # Fresh, per-scan workspace: no stale code and no cross-user collision.
+        workspace_dir = Path(settings.TEMP_WORKSPACES_DIR) / f"git_{owner_id or 'local'}_{repo_name}_{scan_id}"
+        workspace_dir.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            fetch_git_repository(target_repo, workspace_dir)
+        except HTTPException:
+            shutil.rmtree(workspace_dir, ignore_errors=True)
+            raise
+        except Exception as exc:
+            shutil.rmtree(workspace_dir, ignore_errors=True)
+            raise HTTPException(status_code=400, detail=f"Git clone error: {redact_secrets(str(exc))}")
+
         actual_path = str(workspace_dir.resolve())
+        stored_repo = target_repo
     else:
         if not is_safe_repo_path(target_repo):
-            raise HTTPException(status_code=400, detail=f"Invalid repository directory: {req.repo_path}")
+            raise HTTPException(status_code=400, detail=f"Repository path is not allowed: {req.repo_path}")
         actual_path = str(Path(target_repo).resolve())
+        stored_repo = actual_path
 
-    scan_id = f"scan_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
-    
     with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO scans (scan_id, repo_path, status, created_at)
-            VALUES (?, ?, 'scanning', ?)
-        """, (scan_id, req.repo_path, str(time.time())))
+        conn.execute("""
+            INSERT INTO scans (scan_id, repo_path, local_path, status, created_at, owner_id, progress_pct, current_step)
+            VALUES (?, ?, ?, 'scanning', ?, ?, 5, ?)
+        """, (scan_id, stored_repo, actual_path, iso_now(), owner_id, "Initializing scan pipeline..."))
         conn.commit()
 
-    SCAN_PROGRESS[scan_id] = {
-        "status": "scanning",
-        "progress_pct": 5,
-        "current_step": "Initializing scan pipeline...",
-        "error_message": None
-    }
-
-    background_tasks.add_task(
-        execute_scan_pipeline,
-        scan_id=scan_id,
-        repo_path_str=actual_path,
-        run_ai=req.run_ai,
-        custom_mappings=req.custom_mappings
-    )
+    background_tasks.add_task(execute_scan_pipeline, scan_id=scan_id, repo_path_str=actual_path, run_ai=req.run_ai)
 
     return StartScanResponse(
         scan_id=scan_id,
         status="scanning",
         repo_path=req.repo_path,
-        message="Scan initiated successfully."
+        message="Scan initiated successfully.",
     )
 
+
 @router.get("/{scan_id}/progress", response_model=ScanProgressResponse)
-def get_scan_progress(scan_id: str):
-    """Get the current progress of an active scan."""
-    if scan_id in SCAN_PROGRESS:
-        prog = SCAN_PROGRESS[scan_id]
-        return ScanProgressResponse(
-            scan_id=scan_id,
-            status=prog["status"],
-            progress_pct=prog["progress_pct"],
-            current_step=prog["current_step"],
-            error_message=prog.get("error_message")
-        )
-    
+def get_scan_progress(scan_id: str, request: Request):
+    enforce_scan_access(request, scan_id)
     with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT status, error_message FROM scans WHERE scan_id = ?", (scan_id,))
-        row = cursor.fetchone()
-        if not row:
-            raise HTTPException(status_code=404, detail="Scan not found")
-        
-        status = row["status"]
-        pct = 100 if status in ["completed", "failed"] else 50
-        return ScanProgressResponse(
-            scan_id=scan_id,
-            status=status,
-            progress_pct=pct,
-            current_step=f"Status: {status}",
-            error_message=row["error_message"]
-        )
+        row = conn.execute(
+            "SELECT status, progress_pct, current_step, error_message FROM scans WHERE scan_id = ?",
+            (scan_id,),
+        ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    status = row["status"]
+    pct = row["progress_pct"] if row["progress_pct"] is not None else (100 if status in ["completed", "failed"] else 50)
+    return ScanProgressResponse(
+        scan_id=scan_id,
+        status=status,
+        progress_pct=pct,
+        current_step=row["current_step"] or f"Status: {status}",
+        error_message=row["error_message"],
+    )
+
 
 @router.get("", include_in_schema=False)
 @router.get("/")
-def list_scans():
-    """List all previous scans."""
+def list_scans(request: Request):
+    """List scans visible to the caller."""
+    session = get_session(request)
     with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM scans ORDER BY created_at DESC")
-        rows = cursor.fetchall()
-        
+        if settings.REQUIRE_AUTH:
+            owner_id = str(session.get("github_id")) if session else None
+            rows = conn.execute(
+                "SELECT * FROM scans WHERE owner_id = ? ORDER BY created_at DESC",
+                (owner_id,),
+            ).fetchall()
+        else:
+            rows = conn.execute("SELECT * FROM scans ORDER BY created_at DESC").fetchall()
+
         result = []
         for r in rows:
             summary = json.loads(r["summary_json"]) if r["summary_json"] else {}
@@ -291,37 +260,51 @@ def list_scans():
                 "status": r["status"],
                 "created_at": r["created_at"],
                 "summary": summary,
-                "error_message": r["error_message"]
+                "error_message": r["error_message"],
             })
         return result
 
+
+def _verification_status(conn, scan_id: str, package_name: str) -> str:
+    rows = conn.execute(
+        "SELECT status FROM verification_runs WHERE scan_id = ? AND package_name = ?",
+        (scan_id, package_name),
+    ).fetchall()
+    statuses = {r["status"] for r in rows}
+    if not statuses:
+        return "NOT_VERIFIED"
+    if "FAIL" in statuses or "AI_CLAIM_REJECTED" in statuses:
+        return "FAILED"
+    if "INCONCLUSIVE" in statuses or "UNVERIFIED" in statuses:
+        return "INCONCLUSIVE"
+    if statuses <= {"PASS", "NOT_RUN"} and "PASS" in statuses:
+        return "VERIFIED"
+    return "NOT_RUN"
+
+
 @router.get("/{scan_id}")
-def get_scan_details(scan_id: str):
-    """Get comprehensive details and dependency list for a completed scan."""
+def get_scan_details(scan_id: str, request: Request):
+    enforce_scan_access(request, scan_id)
     with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM scans WHERE scan_id = ?", (scan_id,))
-        scan_row = cursor.fetchone()
+        scan_row = conn.execute("SELECT * FROM scans WHERE scan_id = ?", (scan_id,)).fetchone()
         if not scan_row:
             raise HTTPException(status_code=404, detail="Scan not found")
 
-        cursor.execute("SELECT * FROM dependencies WHERE scan_id = ? ORDER BY risk_score DESC", (scan_id,))
-        dep_rows = cursor.fetchall()
+        dep_rows = conn.execute(
+            "SELECT * FROM dependencies WHERE scan_id = ? ORDER BY risk_score DESC", (scan_id,)
+        ).fetchall()
 
         dependencies = []
         for d in dep_rows:
-            risk = json.loads(d["risk_breakdown_json"]) if d["risk_breakdown_json"] else {}
-            meta = json.loads(d["pypi_metadata_json"]) if d["pypi_metadata_json"] else {}
-            usages = json.loads(d["ast_usage_json"]) if d["ast_usage_json"] else []
-
             dependencies.append({
                 "package_name": d["package_name"],
                 "declared_version": d["declared_version"],
                 "category": d["category"],
                 "risk_score": d["risk_score"],
-                "risk_breakdown": risk,
-                "pypi_metadata": meta,
-                "usages_count": len(usages)
+                "risk_breakdown": json.loads(d["risk_breakdown_json"]) if d["risk_breakdown_json"] else {},
+                "pypi_metadata": json.loads(d["pypi_metadata_json"]) if d["pypi_metadata_json"] else {},
+                "usages_count": len(json.loads(d["ast_usage_json"])) if d["ast_usage_json"] else 0,
+                "verification_status": _verification_status(conn, scan_id, d["package_name"]),
             })
 
         return {
@@ -330,27 +313,32 @@ def get_scan_details(scan_id: str):
             "status": scan_row["status"],
             "created_at": scan_row["created_at"],
             "summary": json.loads(scan_row["summary_json"]) if scan_row["summary_json"] else {},
-            "dependencies": dependencies
+            "dependencies": dependencies,
         }
 
+
 @router.delete("/{scan_id}")
-def delete_scan(scan_id: str):
-    """Delete a scan and remove associated generated capsules and temporary files."""
+def delete_scan(scan_id: str, request: Request):
+    info = enforce_scan_access(request, scan_id)
     with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM scans WHERE scan_id = ?", (scan_id,))
-        cursor.execute("DELETE FROM dependencies WHERE scan_id = ?", (scan_id,))
-        cursor.execute("DELETE FROM ai_recommendations WHERE scan_id = ?", (scan_id,))
-        cursor.execute("DELETE FROM verification_runs WHERE scan_id = ?", (scan_id,))
-        cursor.execute("DELETE FROM approval_decisions WHERE scan_id = ?", (scan_id,))
-        cursor.execute("DELETE FROM capsules WHERE scan_id = ?", (scan_id,))
-        cursor.execute("DELETE FROM implementation_plans WHERE scan_id = ?", (scan_id,))
-        cursor.execute("DELETE FROM post_verifications WHERE scan_id = ?", (scan_id,))
+        row = conn.execute("SELECT local_path FROM scans WHERE scan_id = ?", (scan_id,)).fetchone()
+        for table in (
+            "scans", "dependencies", "ai_recommendations", "verification_runs",
+            "approval_decisions", "approval_history", "capsules", "capsule_versions",
+            "implementation_plans", "post_verifications",
+        ):
+            conn.execute(f"DELETE FROM {table} WHERE scan_id = ?", (scan_id,))
         conn.commit()
 
-    # Clean capsule folder
     capsule_dir = Path(settings.CAPSULES_DIR) / scan_id
     if capsule_dir.exists():
         shutil.rmtree(str(capsule_dir), ignore_errors=True)
+
+    local_path = row["local_path"] if row else None
+    if local_path:
+        workspace = Path(local_path).resolve()
+        temp_root = Path(settings.TEMP_WORKSPACES_DIR).resolve()
+        if workspace != temp_root and temp_root in workspace.parents:
+            shutil.rmtree(str(workspace), ignore_errors=True)
 
     return {"message": f"Scan {scan_id} and associated artifacts deleted successfully."}

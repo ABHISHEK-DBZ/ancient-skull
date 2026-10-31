@@ -1,0 +1,213 @@
+/* ==========================================================================
+   EXIT CAPSULE CINEMATIC DESIGN SYSTEM — LAYOUT & COMPONENTS
+   ========================================================================== */
+
+/* Main Page Container */
+.ec-landing-root {
+  background-color: var(--ec-bg-dark);
+  color: var(--ec-text-primary);
+  font-family: var(--font-body);
+  position: relative;
+  min-height: 100vh;
+  width: 100%;
+  overflow-x: clip;
+}
+
+/* Base Chapter Section */
+.ec-chapter {
+  position: relative;
+  width: 100%;
+  padding: 140px 0;
+  border-bottom: 1px solid var(--ec-border-subtle);
+  overflow: hidden;
+}
+
+.ec-container {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0 32px;
+  position: relative;
+  z-index: 2;
+}
+
+.ec-container-wide {
+  max-width: 1560px;
+  margin: 0 auto;
+  padding: 0 32px;
+  position: relative;
+  z-index: 2;
+}
+
+/* Hairline Dividers */
+.ec-hairline {
+  width: 100%;
+  height: 1px;
+  background: var(--ec-border-subtle);
+  margin: 40px 0;
+}
+
+.ec-hairline-paper {
+  width: 100%;
+  height: 1px;
+  background: var(--ec-paper-border);
+  margin: 40px 0;
+}
+
+/* Technical Corner Crosshairs */
+.ec-crosshair-box {
+  position: relative;
+}
+
+.ec-crosshair-box::before,
+.ec-crosshair-box::after {
+  content: '+';
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1;
+  color: var(--ec-text-dim);
+  pointer-events: none;
+}
+
+.ec-crosshair-box::before {
+  top: -7px;
+  left: -6px;
+}
+
+.ec-crosshair-box::after {
+  bottom: -7px;
+  right: -6px;
+}
+
+/* Surfaces */
+.ec-card-glass {
+  background: var(--ec-bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--ec-border-light);
+  border-radius: var(--ec-radius-md);
+  box-shadow: var(--ec-shadow-subtle);
+  position: relative;
+  transition: border-color var(--ec-transition-normal), transform var(--ec-transition-normal);
+}
+
+.ec-card-glass:hover {
+  border-color: var(--ec-border-light);
+}
+
+/* Warm Paper Inversion Chapter */
+.ec-paper-section {
+  background-color: var(--ec-paper-bg);
+  color: var(--ec-paper-text);
+  border-bottom: 1px solid var(--ec-paper-border);
+}
+
+.ec-paper-card {
+  background: var(--ec-paper-card);
+  border: 1px solid var(--ec-paper-border);
+  border-radius: var(--ec-radius-md);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.05);
+  position: relative;
+}
+
+/* Dark Mode Overrides for Paper Chapter */
+[data-theme="dark"] .ec-paper-section {
+  background-color: #0B0E13;
+  color: var(--ec-text-primary);
+  border-bottom: 1px solid var(--ec-border-subtle);
+}
+
+[data-theme="dark"] .ec-paper-card {
+  background: rgba(16, 20, 25, 0.75);
+  border: 1px solid var(--ec-border-light);
+  box-shadow: var(--ec-shadow-subtle);
+  color: var(--ec-text-primary);
+}
+
+[data-theme="dark"] .ec-paper-section h2,
+[data-theme="dark"] .ec-paper-section h3 {
+  color: var(--ec-text-primary) !important;
+}
+
+[data-theme="dark"] .ec-paper-section p,
+[data-theme="dark"] .ec-paper-section span {
+  color: var(--ec-text-muted);
+}
+
+/* Cinematic Buttons */
+.ec-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background-color: var(--ec-electric-blue);
+  color: #FFFFFF;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 14px 28px;
+  border-radius: var(--ec-radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  box-shadow: var(--ec-shadow-glow-blue);
+  transition: transform var(--ec-transition-fast), background-color var(--ec-transition-fast), box-shadow var(--ec-transition-fast);
+  position: relative;
+  overflow: hidden;
+}
+
+.ec-btn-primary:hover {
+  background-color: #6A82FF;
+  transform: translateY(-2px);
+  box-shadow: 0 0 50px rgba(83, 109, 255, 0.55);
+}
+
+.ec-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background-color: var(--ec-bg-chip);
+  color: var(--ec-text-primary);
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 500;
+  padding: 14px 26px;
+  border-radius: var(--ec-radius-sm);
+  border: 1px solid var(--ec-border-light);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all var(--ec-transition-fast);
+  backdrop-filter: blur(8px);
+}
+
+.ec-btn-secondary:hover {
+  background-color: var(--ec-bg-elevated);
+  border-color: var(--ec-border-focus);
+  transform: translateY(-2px);
+}
+
+.ec-btn-paper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background-color: var(--ec-paper-text);
+  color: #FAF9F5;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 14px 28px;
+  border-radius: var(--ec-radius-sm);
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all var(--ec-transition-fast);
+}
+
+.ec-btn-paper:hover {
+  background-color: #000000;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+}
+

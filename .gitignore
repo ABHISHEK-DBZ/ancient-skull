@@ -20,8 +20,19 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual environments
+# Security & credentials
 .env
+.env.*
+!.env.example
+*.key
+*.pem
+*.cert
+*.crt
+*.pfx
+.secret_key
+backend/.secret_key
+
+# Virtual environments
 .venv
 env/
 venv/
@@ -38,9 +49,14 @@ frontend/dist-ssr/
 # Database & temporary artifacts
 *.sqlite3
 *.db
+*.db-wal
+*.db-shm
+*.log
+*.zip
 generated_capsules/
 backend/generated_capsules/
 temp_workspaces/
+**/temp_workspaces/
 isolated_envs/
 .pytest_cache/
 .coverage

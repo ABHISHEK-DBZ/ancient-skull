@@ -63,7 +63,7 @@ export const DependencyDetailsPage: React.FC<DependencyDetailsPageProps> = ({
       if (data.ai_recommendation?.candidate_replacement) {
         setCandidatePackage(data.ai_recommendation.candidate_replacement);
       } else if (!candidatePackage) {
-        setCandidatePackage(packageName);
+        setCandidatePackage('');
       }
       if (data.approval) {
         setApprovalDecision(data.approval.decision);
@@ -114,7 +114,43 @@ export const DependencyDetailsPage: React.FC<DependencyDetailsPageProps> = ({
   };
 
   const handleGeneratePlan = async () => {
-    const cand = candidatePackage || detail?.ai_recommendation?.candidate_replacement || packageName;
+    let cand = (candidatePackage || detail?.ai_recommendation?.candidate_replacement || '').trim();
+
+    if (!cand || cand === packageName) {
+      const entered = window.prompt(
+        `Please specify the candidate replacement package for '${packageName}' (e.g. an alternative library or upgraded release):`,
+        ''
+      );
+      if (!entered || !entered.trim()) {
+        return;
+      }
+      cand = entered.trim();
+      setCandidatePackage(cand);
+    }
+
+    // Implementation plans require developer approval in the Exit Capsule governance model
+    if (approvalDecision !== 'APPROVED') {
+      const confirmApprove = window.confirm(
+        `Implementation plans require explicit developer approval for migration safety.\n\nWould you like to approve migrating '${packageName}' to '${cand}' and generate the implementation plan now?`
+      );
+      if (!confirmApprove) {
+        const section5 = document.getElementById('review-approval-section');
+        if (section5) section5.scrollIntoView({ behavior: 'smooth' });
+        return;
+      }
+      try {
+        setApproving(true);
+        await recordApproval(scanId, packageName, 'APPROVED', approvalNotes || `Approved migration to ${cand} via Plan Generator`);
+        setApprovalDecision('APPROVED');
+        setApprovalMsg('Decision persisted: APPROVED');
+      } catch (appErr: any) {
+        alert(`Approval error: ${appErr.message}`);
+        return;
+      } finally {
+        setApproving(false);
+      }
+    }
+
     try {
       await createImplementationPlan(scanId, packageName, cand);
       onOpenImplementationPlan(packageName);
@@ -189,8 +225,13 @@ export const DependencyDetailsPage: React.FC<DependencyDetailsPageProps> = ({
         </div>
 
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button className="btn btn-secondary" onClick={handleGeneratePlan}>
-            <FileText size={14} /> <span>Implementation Plan</span>
+          <button 
+            className={approvalDecision === 'APPROVED' ? "btn btn-primary" : "btn btn-secondary"}
+            onClick={handleGeneratePlan}
+            title={approvalDecision === 'APPROVED' ? "View or regenerate implementation plan" : "Requires developer approval before generating plan"}
+          >
+            <FileText size={14} /> 
+            <span>{approvalDecision === 'APPROVED' ? "Implementation Plan" : "Approve & Generate Plan"}</span>
           </button>
         </div>
       </div>
@@ -395,8 +436,49 @@ export const DependencyDetailsPage: React.FC<DependencyDetailsPageProps> = ({
               )}
             </div>
           ) : (
-            <div style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', fontStyle: 'italic' }}>
-              No AI recommendation recorded. You can still evaluate any replacement package using the verification runner below.
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{
+                padding: '12px 16px',
+                background: 'var(--bg-sidebar)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '5px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '12px'
+              }}>
+                <div>
+                  <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                    Specify Candidate Replacement:
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                    Enter an alternative package name to evaluate or migrate:
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input
+                    type="text"
+                    className="input-field font-mono"
+                    style={{ width: '200px', padding: '5px 10px', fontSize: '0.8rem' }}
+                    value={candidatePackage}
+                    onChange={(e) => setCandidatePackage(e.target.value)}
+                    placeholder="e.g. alternative-package"
+                  />
+                  <button 
+                    className="btn btn-primary"
+                    style={{ padding: '5px 12px', fontSize: '0.78rem' }}
+                    onClick={handleRunVerification}
+                    disabled={verifying}
+                  >
+                    <Play size={12} />
+                    <span>{verifying ? 'Evaluating...' : 'Verify Candidate'}</span>
+                  </button>
+                </div>
+              </div>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0 }}>
+                💡 Tip: Type a replacement candidate above to execute the 10-point verification engine and generate an evidence-backed migration plan.
+              </p>
             </div>
           )}
         </div>
@@ -493,7 +575,7 @@ export const DependencyDetailsPage: React.FC<DependencyDetailsPageProps> = ({
         </div>
 
         {/* Section 5: Review & Approval Decision Box */}
-        <div className="workbench-panel" style={{ padding: '22px' }}>
+        <div id="review-approval-section" className="workbench-panel" style={{ padding: '22px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <h3 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
               5. Review Migration Proposal
@@ -539,22 +621,53 @@ export const DependencyDetailsPage: React.FC<DependencyDetailsPageProps> = ({
             </div>
 
             <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                className="btn btn-danger"
-                onClick={() => handleApproval('REJECTED')}
-                disabled={approving}
-              >
-                <Ban size={13} />
-                <span>Reject Proposal</span>
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={() => handleApproval('APPROVED')}
-                disabled={approving}
-              >
-                <CheckCircle2 size={13} />
-                <span>Approve Proposal</span>
-              </button>
+              {approvalDecision === 'APPROVED' ? (
+                <>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => handleApproval('REJECTED')}
+                    disabled={approving}
+                  >
+                    <Ban size={13} />
+                    <span>Revoke / Reject</span>
+                  </button>
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleGeneratePlan}
+                  >
+                    <FileText size={13} />
+                    <span>Generate / Open Implementation Plan</span>
+                    <ArrowRight size={13} />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    className="btn btn-danger"
+                    onClick={() => handleApproval('REJECTED')}
+                    disabled={approving}
+                  >
+                    <Ban size={13} />
+                    <span>Reject Proposal</span>
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => handleApproval('APPROVED')}
+                    disabled={approving}
+                  >
+                    <CheckCircle2 size={13} />
+                    <span>Approve Proposal</span>
+                  </button>
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleGeneratePlan}
+                    disabled={approving}
+                  >
+                    <CheckCircle2 size={13} />
+                    <span>Approve & Generate Plan</span>
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

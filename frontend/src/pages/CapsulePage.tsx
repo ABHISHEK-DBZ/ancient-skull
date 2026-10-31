@@ -86,7 +86,7 @@ export const CapsulePage: React.FC<CapsulePageProps> = ({ scanId, onBack }) => {
         risk_score: ra?.overall_score ?? ra?.risk_score ?? 0,
         recommended_replacement: rec?.candidate_replacement || (rec?.proposal?.candidate_replacement) || 'None',
         classification: rec ? 'AI_RECOMMENDED' : (ra?.category === 'declared' ? 'OBSERVED' : 'UNVERIFIED'),
-        verification_status: vers.length > 0 ? `${passedCount}/${vers.length} PASS` : 'Evidence Collected'
+        verification_status: vers.length > 0 ? `${passedCount}/${vers.length} PASS` : ''
       };
     });
   }, [data]);
@@ -147,11 +147,11 @@ export const CapsulePage: React.FC<CapsulePageProps> = ({ scanId, onBack }) => {
                 Exit Capsule Technical Report
               </h1>
               <span className="badge badge-executed">
-                v{data?.capsule_version || '1.0'} Verified
+                v{data?.capsule_version || 1} {data?.capsule_sha256 ? 'Sealed' : 'Unsealed'}
               </span>
             </div>
             <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
-              Scan: {scanId} | Hash: {(data?.capsule_sha256 || 'Verified').slice(0, 16)}...
+              Scan: {scanId} | Hash: {data?.capsule_sha256 ? `${data.capsule_sha256.slice(0, 16)}...` : 'not sealed'}
             </div>
           </div>
         </div>
@@ -273,17 +273,17 @@ export const CapsulePage: React.FC<CapsulePageProps> = ({ scanId, onBack }) => {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', fontSize: '0.8rem' }}>
               <div>
                 <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.72rem' }}>Target Repository:</span>
-                <span className="font-mono" style={{ fontWeight: 600 }}>{data?.repository_path || data?.repository?.path || 'LinkWatch Core'}</span>
+                <span className="font-mono" style={{ fontWeight: 600 }}>{data?.repository_path || 'Unknown repository'}</span>
               </div>
               <div>
                 <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.72rem' }}>SHA-256 Digest:</span>
                 <span className="font-mono" style={{ color: 'var(--text-primary)', wordBreak: 'break-all', fontSize: '0.74rem' }}>
-                  {data?.capsule_sha256 || capsule.scan_id}
+                  {data?.capsule_sha256 || 'Not sealed'}
                 </span>
               </div>
               <div>
                 <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.72rem' }}>Seal Timestamp:</span>
-                <span>{data?.scan_timestamp ? new Date(Number(data.scan_timestamp) * (Number(data.scan_timestamp) < 10000000000 ? 1000 : 1)).toUTCString() : (data?.generated_at ? new Date(data.generated_at).toUTCString() : 'Active')}</span>
+                <span>{data?.scan_timestamp ? new Date(Number(data.scan_timestamp) * (Number(data.scan_timestamp) < 10000000000 ? 1000 : 1)).toUTCString() : (data?.generated_at ? new Date(data.generated_at).toUTCString() : 'Not recorded')}</span>
               </div>
             </div>
           </div>
@@ -343,11 +343,11 @@ export const CapsulePage: React.FC<CapsulePageProps> = ({ scanId, onBack }) => {
                         </div>
                       </td>
                       <td>
-                        <StatusBadge status={dep.classification || 'VERIFIED'} />
+                        <StatusBadge status={dep.classification || 'UNVERIFIED'} />
                       </td>
                       <td>
-                        <span style={{ fontSize: '0.76rem', color: 'var(--status-pass-text)', fontWeight: 600 }}>
-                          {dep.verification_status || '10/10 PASS'}
+                        <span style={{ fontSize: '0.76rem', color: dep.verification_status ? 'var(--status-pass-text)' : 'var(--text-muted)', fontWeight: 600 }}>
+                          {dep.verification_status || 'No checks run'}
                         </span>
                       </td>
                     </tr>

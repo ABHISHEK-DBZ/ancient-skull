@@ -1,12 +1,25 @@
 import os
 import json
 import time
+import hashlib
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List
 from app.config import settings
 from app.capsule.schema import ExitCapsuleData, CapsuleEvidenceItem
 from app.capsule.markdown_builder import generate_capsule_markdown
+from app.core.clock import iso_now
 from app.database import get_db_connection
+
+
+def _as_timestamp(value) -> float:
+    try:
+        return datetime.fromisoformat(str(value)).timestamp()
+    except (TypeError, ValueError):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return time.time()
 
 def assemble_and_save_capsule(scan_id: str) -> tuple[Path, Path, ExitCapsuleData]:
     """
@@ -23,7 +36,7 @@ def assemble_and_save_capsule(scan_id: str) -> tuple[Path, Path, ExitCapsuleData
             raise ValueError(f"Scan {scan_id} not found")
         
         repo_path = scan_row["repo_path"]
-        created_at = float(scan_row["created_at"]) if scan_row["created_at"].replace(".", "").isdigit() else time.time()
+        created_at = _as_timestamp(scan_row["created_at"])
         summary = json.loads(scan_row["summary_json"]) if scan_row["summary_json"] else {}
 
         # 2. Fetch dependencies
@@ -169,23 +182,42 @@ def assemble_and_save_capsule(scan_id: str) -> tuple[Path, Path, ExitCapsuleData
             confidence_score=confidence_score
         )
 
-        # Write to files
         capsule_dir = Path(settings.CAPSULES_DIR) / scan_id
         capsule_dir.mkdir(parents=True, exist_ok=True)
-        
-        json_path = capsule_dir / "capsule.json"
-        md_path = capsule_dir / "capsule.md"
 
-        json_path.write_text(capsule_data.json(indent=2), encoding="utf-8")
-        
-        md_content = generate_capsule_markdown(capsule_data)
-        md_path.write_text(md_content, encoding="utf-8")
+        prev = cursor.execute(
+            "SELECT version, sha256 FROM capsule_versions WHERE scan_id = ? ORDER BY version DESC LIMIT 1",
+            (scan_id,),
+        ).fetchone()
+        version = (prev["version"] + 1) if prev else 1
+        previous_seal = prev["sha256"] if prev else None
 
-        # Persist in DB
+        capsule_data.capsule_version = version
+        capsule_data.previous_seal_sha256 = previous_seal
+
+        # The digest covers the document before the digest field is filled in.
+        unsigned_payload = capsule_data.json(indent=2)
+        digest = hashlib.sha256(unsigned_payload.encode("utf-8")).hexdigest()
+        sealed = capsule_data.copy(update={"capsule_sha256": digest})
+        payload = sealed.json(indent=2)
+
+        version_dir = capsule_dir / f"v{version}"
+        version_dir.mkdir(parents=True, exist_ok=True)
+        json_path = version_dir / "capsule.json"
+        md_path = version_dir / "capsule.md"
+
+        json_path.write_text(payload, encoding="utf-8")
+        md_path.write_text(generate_capsule_markdown(sealed), encoding="utf-8")
+
+        now = iso_now()
         cursor.execute("""
             INSERT OR REPLACE INTO capsules (scan_id, capsule_json_path, capsule_md_path, created_at)
             VALUES (?, ?, ?, ?)
-        """, (scan_id, str(json_path), str(md_path), str(time.time())))
+        """, (scan_id, str(json_path), str(md_path), now))
+        cursor.execute("""
+            INSERT INTO capsule_versions (scan_id, version, capsule_json_path, capsule_md_path, sha256, prev_sha256, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (scan_id, version, str(json_path), str(md_path), digest, previous_seal, now))
         conn.commit()
 
-        return json_path, md_path, capsule_data
+        return json_path, md_path, sealed

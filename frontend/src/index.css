@@ -1,7 +1,68 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
 
-:root {
-  /* Engineering Workbench Light Neutral Palette (Wafer.ai Art Direction) */
+:root, [data-theme="dark"] {
+  /* Engineering Workbench Dark Palette */
+  --bg-app: #090B0E;
+  --bg-surface: #101419;
+  --bg-sidebar: #0C0F13;
+  --bg-subtle: #161B22;
+  --bg-hover: #1C222B;
+  
+  --text-primary: #F3F2ED;
+  --text-secondary: #92969D;
+  --text-muted: #5C626C;
+  --text-inverse: #090B0E;
+
+  --border-color: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-dark: rgba(255, 255, 255, 0.16);
+
+  /* Muted Sage Accent */
+  --accent-sage: #51D6A0;
+  --accent-sage-dark: #3DB884;
+  --accent-sage-light: rgba(81, 214, 160, 0.12);
+  --accent-sage-border: rgba(81, 214, 160, 0.3);
+
+  /* Restrained Engineering Status Colors (Dark Functional) */
+  --status-pass-text: #51D6A0;
+  --status-pass-bg: rgba(81, 214, 160, 0.12);
+  --status-pass-border: rgba(81, 214, 160, 0.3);
+
+  --status-fail-text: #FF624E;
+  --status-fail-bg: rgba(255, 98, 78, 0.12);
+  --status-fail-border: rgba(255, 98, 78, 0.3);
+
+  --status-warn-text: #FFB84D;
+  --status-warn-bg: rgba(255, 184, 77, 0.12);
+  --status-warn-border: rgba(255, 184, 77, 0.3);
+
+  --status-inconclusive-text: #FB923C;
+  --status-inconclusive-bg: rgba(251, 146, 60, 0.12);
+  --status-inconclusive-border: rgba(251, 146, 60, 0.3);
+
+  --status-neutral-text: #9CA3AF;
+  --status-neutral-bg: rgba(255, 255, 255, 0.05);
+  --status-neutral-border: rgba(255, 255, 255, 0.1);
+
+  /* Dark Charcoal Surfaces Reserved for Code, Diffs & Terminal Logs */
+  --code-bg: #090B0E;
+  --code-surface: #12151B;
+  --code-border: #1F242C;
+  --code-text: #E5E7EB;
+  --code-muted: #8E939D;
+  --code-green: #34D399;
+  --code-red: #F87171;
+  --code-amber: #FBBF24;
+
+  /* Typography */
+  --font-display: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-interface: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+[data-theme="light"] {
+  /* Engineering Workbench Light Neutral Palette */
   --bg-app: #FAFAF8;
   --bg-surface: #FFFFFF;
   --bg-sidebar: #F5F6F2;
@@ -17,13 +78,11 @@
   --border-subtle: #EDF0EA;
   --border-dark: #D4D7CD;
 
-  /* Muted Sage Accent */
   --accent-sage: #95ABA7;
   --accent-sage-dark: #7A938F;
   --accent-sage-light: #EBF0EF;
   --accent-sage-border: #C8D6D4;
 
-  /* Restrained Engineering Status Colors (Functional Only) */
   --status-pass-text: #166534;
   --status-pass-bg: #F0FDF4;
   --status-pass-border: #BBF7D0;
@@ -44,7 +103,6 @@
   --status-neutral-bg: #F3F4F6;
   --status-neutral-border: #E5E7EB;
 
-  /* Dark Charcoal Surfaces Reserved for Code, Diffs & Terminal Logs */
   --code-bg: #141618;
   --code-surface: #1B1E21;
   --code-border: #2B2E33;
@@ -53,12 +111,6 @@
   --code-green: #34D399;
   --code-red: #F87171;
   --code-amber: #FBBF24;
-
-  /* Typography */
-  --font-display: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-interface: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
 }
 
 * {
@@ -120,11 +172,11 @@ body {
   background: var(--bg-app);
 }
 ::-webkit-scrollbar-thumb {
-  background: #D8DBD2;
+  background: var(--border-dark);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #C4C8BE;
+  background: var(--text-muted);
 }
 
 /* Buttons */
@@ -148,18 +200,18 @@ body {
 
 /* Engineering Buttons */
 .btn-primary {
-  background: #171815;
-  color: #FFFFFF;
+  background: var(--text-primary);
+  color: var(--text-inverse);
   font-weight: 500;
-  border: 1px solid #171815;
+  border: 1px solid var(--text-primary);
 }
 .btn-primary:hover {
-  background: #2C2E2A;
-  border-color: #2C2E2A;
+  background: var(--bg-hover);
+  border-color: var(--bg-hover);
 }
 
 .btn-secondary {
-  background: #FFFFFF;
+  background: var(--bg-surface);
   color: var(--text-primary);
   border: 1px solid var(--border-color);
 }
@@ -188,16 +240,16 @@ body {
 }
 
 .btn-success {
-  background: #166534;
+  background: var(--status-pass-text);
   color: #FFFFFF;
-  border: 1px solid #14532D;
+  border: 1px solid var(--status-pass-text);
 }
 .btn-success:hover {
   background: #15803D;
 }
 
 .btn-danger {
-  background: #FFFFFF;
+  background: var(--bg-surface);
   color: var(--status-fail-text);
   border: 1px solid var(--status-fail-border);
 }
@@ -210,7 +262,7 @@ body {
 .input-field {
   width: 100%;
   padding: 8px 12px;
-  background: #FFFFFF;
+  background: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: 5px;
   color: var(--text-primary);
@@ -252,7 +304,7 @@ body {
 }
 
 .workbench-table tr:hover td {
-  background-color: #F9FAF7;
+  background-color: var(--bg-hover);
 }
 
 /* Status Badges */
@@ -386,8 +438,8 @@ body {
 .bg-grid-pattern {
   background-size: 32px 32px;
   background-image: 
-    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    linear-gradient(to right, var(--border-subtle) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--border-subtle) 1px, transparent 1px);
 }
 
 /* Prefers reduced motion */

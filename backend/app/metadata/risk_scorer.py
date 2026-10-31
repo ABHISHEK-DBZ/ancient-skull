@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 from packaging.version import Version, InvalidVersion
+from app.metadata.pypi_client import extract_pinned_version
 
 class RiskFactor:
     def __init__(self, name: str, score: float, description: str, evidence: Optional[str] = None):
@@ -113,7 +114,7 @@ def calculate_risk_score(metadata: Dict[str, Any], pinned_version: Optional[str]
             pass
 
     # 3. Version Lag
-    clean_pinned = pinned_version.lstrip("=~><^! ").strip() if pinned_version else None
+    clean_pinned = extract_pinned_version(pinned_version)
     latest_v_str = metadata.get("latest_version")
     if clean_pinned and latest_v_str:
         try:

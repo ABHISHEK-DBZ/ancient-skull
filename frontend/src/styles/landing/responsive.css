@@ -1,0 +1,82 @@
+/* ==========================================================================
+   EXIT CAPSULE CINEMATIC DESIGN SYSTEM — RESPONSIVE DESIGN
+   ========================================================================== */
+
+/* Laptop & Large Screens */
+@media (min-width: 1440px) {
+  .ec-container {
+    max-width: 1400px;
+  }
+}
+
+/* Tablet (768px - 1023px) */
+@media (max-width: 1023px) {
+  .ec-chapter {
+    padding: 100px 0;
+  }
+
+  .ec-container,
+  .ec-container-wide {
+    padding: 0 24px;
+  }
+
+  .ec-hero-grid {
+    grid-template-columns: 1fr !important;
+    gap: 48px !important;
+  }
+
+  .ec-hero-canvas-col {
+    height: 480px !important;
+  }
+}
+
+/* Mobile (< 768px) */
+@media (max-width: 767px) {
+  .ec-chapter {
+    padding: 72px 0;
+  }
+
+  .ec-container,
+  .ec-container-wide {
+    padding: 0 18px;
+  }
+
+  /* Disable Custom Cursor on Touch Devices */
+  .ec-custom-cursor,
+  .ec-cursor-label {
+    display: none !important;
+  }
+
+  /* Stack Hero & Storytelling Grids */
+  .ec-hero-grid {
+    grid-template-columns: 1fr !important;
+    gap: 36px !important;
+  }
+
+  .ec-hero-canvas-col {
+    height: 360px !important;
+  }
+
+  .ec-split-grid {
+    grid-template-columns: 1fr !important;
+    gap: 32px !important;
+  }
+
+  .ec-mobile-stack {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .ec-btn-primary,
+  .ec-btn-secondary,
+  .ec-btn-paper {
+    width: 100%;
+    min-height: 48px;
+  }
+
+  /* Ensure no horizontal overflow */
+  .ec-landing-root {
+    overflow-x: hidden;
+  }
+}
+

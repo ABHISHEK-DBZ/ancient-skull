@@ -1,97 +1,60 @@
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { formatTimestamp } from '../pages/DashboardPage';
+import { getScanDetails, startScan } from '../api/client';
 
-describe('Exit Capsule Dashboard Architecture & Models', () => {
-  it('correctly maps evidence classifications', () => {
-    const classifications = ['OBSERVED', 'EXECUTED', 'AI SUGGESTED', 'VERIFIED'];
-    expect(classifications).toContain('OBSERVED');
-    expect(classifications).toContain('EXECUTED');
-    expect(classifications).toContain('AI SUGGESTED');
-    expect(classifications).toContain('VERIFIED');
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe('formatTimestamp', () => {
+  it('parses ISO timestamps persisted by the API', () => {
+    expect(formatTimestamp('2026-01-02T03:04:05+00:00')).not.toBe('—');
   });
 
-  it('calculates risk score levels accurately', () => {
-    const computeLevel = (score: number) => {
-      if (score >= 80) return 'CRITICAL';
-      if (score >= 50) return 'HIGH';
-      if (score >= 20) return 'MEDIUM';
-      return 'LOW';
-    };
-
-    expect(computeLevel(92)).toBe('CRITICAL');
-    expect(computeLevel(84)).toBe('CRITICAL');
-    expect(computeLevel(65)).toBe('HIGH');
-    expect(computeLevel(35)).toBe('MEDIUM');
-    expect(computeLevel(12)).toBe('LOW');
+  it('parses legacy epoch-second values', () => {
+    expect(formatTimestamp('1712345678')).not.toBe('—');
   });
 
-  it('formats verified AI Coding Agent prompt with required constraints', () => {
-    const generatePrompt = (scanId: string, pkg: string, candidate: string, steps: string[]) => {
-      return `You are a Python migration agent executing Exit Capsule ${scanId}.
-TARGET: ${pkg} -> ${candidate}
-MIGRATION STEPS:
-${steps.map((s, i) => `${i + 1}. ${s}`).join('\n')}
-CONSTRAINTS:
-- Do not make unrelated refactors.
-- Run tests in isolated sandbox.
-- Roll back immediately on failure.`;
-    };
+  it('never renders Invalid Date', () => {
+    expect(formatTimestamp('not-a-date')).toBe('—');
+    expect(formatTimestamp(null)).toBe('—');
+    expect(formatTimestamp('')).toBe('—');
+  });
+});
 
-    const prompt = generatePrompt('scan_001', 'requests', 'httpx', [
-      'Update requirements.txt',
-      'Replace requests.get with httpx.get',
-      'Run pytest tests/'
-    ]);
+describe('API client', () => {
+  it('sends session cookies with every request', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ scan_id: 'scan_1', status: 'completed', created_at: '', summary: {}, dependencies: [] })
+    });
+    vi.stubGlobal('fetch', fetchMock);
 
-    expect(prompt).toContain('requests -> httpx');
-    expect(prompt).toContain('Replace requests.get with httpx.get');
-    expect(prompt).toContain('CONSTRAINTS:');
-    expect(prompt).toContain('isolated sandbox');
+    await getScanDetails('scan_1');
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init.credentials).toBe('include');
   });
 
-  it('handles 10-point verification check matrix statuses', () => {
-    const sampleChecks = [
-      { check: 'pypi_wheel_exists', status: 'PASS' },
-      { check: 'python_312_compat', status: 'PASS' },
-      { check: 'ast_symbol_compat', status: 'PASS' },
-      { check: 'ephemeral_venv_isolation', status: 'PASS' },
-      { check: 'import_smoke_test', status: 'PASS' },
-      { check: 'signature_equivalence', status: 'PASS' },
-      { check: 'regression_suite', status: 'PASS' },
-      { check: 'license_compat', status: 'PASS' },
-      { check: 'transitive_audit', status: 'PASS' },
-      { check: 'hash_seal', status: 'PASS' }
-    ];
+  it('does not send removed custom_mappings field', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ scan_id: 's', status: 'scanning', message: 'ok' }) });
+    vi.stubGlobal('fetch', fetchMock);
 
-    const passCount = sampleChecks.filter(c => c.status === 'PASS').length;
-    expect(passCount).toBe(10);
-    expect(sampleChecks.every(c => c.status === 'PASS')).toBe(true);
+    await startScan('/tmp/repo', true);
+
+    const [, init] = fetchMock.mock.calls[0];
+    const body = JSON.parse(init.body);
+    expect(body).toEqual({ repo_path: '/tmp/repo', run_ai: true });
   });
 
-  it('tracks manual checklist completion progress without data loss', () => {
-    const checklist = [
-      { id: 1, item: 'Update dependencies file', completed: false },
-      { id: 2, item: 'Refactor import statements', completed: false },
-      { id: 3, item: 'Execute pytest test suite', completed: false }
-    ];
+  it('surfaces backend error details', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      statusText: 'Not Found',
+      json: async () => ({ detail: "Scan 'x' not found." })
+    }));
 
-    // Mark step 1 and 2 complete
-    checklist[0].completed = true;
-    checklist[1].completed = true;
-
-    const completed = checklist.filter(c => c.completed).length;
-    expect(completed).toBe(2);
-    expect(checklist.length).toBe(3);
-    expect(checklist[2].completed).toBe(false);
-  });
-
-  it('verifies rollback strategy integrity', () => {
-    const rollback = {
-      command: 'git restore .',
-      revertPin: 'requests==2.22.0',
-      reason: 'Sandbox test failure'
-    };
-
-    expect(rollback.command).toBe('git restore .');
-    expect(rollback.revertPin).toBe('requests==2.22.0');
+    await expect(getScanDetails('x')).rejects.toThrow("Scan 'x' not found.");
   });
 });

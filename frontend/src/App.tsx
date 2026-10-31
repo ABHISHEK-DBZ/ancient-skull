@@ -14,6 +14,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { listScans, completeGitHubCallback } from './api/client';
 import { GitHubModal } from './components/GitHubModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { ThemeProvider } from './context/ThemeContext';
 
 const VALID_TABS: Array<AppTab | 'landing'> = [
   'landing',
@@ -68,12 +69,13 @@ function getInitialAppState(): {
   }
 }
 
-export const App: React.FC = () => {
+const AppContent: React.FC = () => {
   const initial = getInitialAppState();
   const [currentTab, setCurrentTab] = useState<AppTab | 'landing'>(initial.tab);
   const [activeScanId, setActiveScanId] = useState<string | null>(initial.scanId);
   const [selectedPackage, setSelectedPackage] = useState<string | null>(initial.pkg);
   const [githubModalOpen, setGithubModalOpen] = useState(false);
+  const [oauthError, setOauthError] = useState<string | null>(null);
 
   // Sync state to URL and localStorage on changes
   useEffect(() => {
@@ -125,17 +127,27 @@ export const App: React.FC = () => {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
-    const state = params.get('state');
+    const denied = params.get('error_description') || params.get('error');
+    const clearCallbackUrl = () => {
+      window.history.replaceState({}, document.title, `${window.location.origin}/?tab=overview`);
+      setCurrentTab('overview');
+    };
+
+    if (denied) {
+      clearCallbackUrl();
+      setOauthError(denied);
+      return;
+    }
+
     if (code) {
-      completeGitHubCallback(code, state || undefined)
+      completeGitHubCallback(code, params.get('state') || undefined)
         .then(() => {
-          window.history.replaceState({}, document.title, window.location.pathname.replace(/\/auth\/callback\/?/, ''));
-          setCurrentTab('overview');
+          clearCallbackUrl();
           setGithubModalOpen(true);
         })
         .catch((err) => {
-          console.error('GitHub authentication failed:', err);
-          setCurrentTab('overview');
+          clearCallbackUrl();
+          setOauthError(err.message || 'GitHub authorization failed');
         });
     }
   }, []);
@@ -193,6 +205,12 @@ export const App: React.FC = () => {
       onSelectScan={(id) => setActiveScanId(id)}
     >
       <ErrorBoundary fallbackTitle="Page View Error">
+        {oauthError && (
+          <div className="workbench-panel" style={{ margin: '12px 20px', padding: '10px 14px', border: '1px solid #FED7D7', background: '#FFF5F5', color: '#C53030', fontSize: '0.82rem', display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+            <span>GitHub authorization failed: {oauthError}</span>
+            <button className="btn btn-secondary" style={{ padding: '2px 8px' }} onClick={() => setOauthError(null)}>Dismiss</button>
+          </div>
+        )}
         {currentTab === 'overview' && (
           <DashboardPage
             onNavigateNewScan={() => setCurrentTab('new-scan')}
@@ -339,6 +357,14 @@ export const App: React.FC = () => {
         onScanStarted={navigateToScan}
       />
     </AppShell>
+  );
+};
+
+export const App: React.FC = () => {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 };
 

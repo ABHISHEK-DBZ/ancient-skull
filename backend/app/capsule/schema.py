@@ -29,6 +29,9 @@ class ExitCapsuleData(BaseModel):
     approval_state: Dict[str, str]
     confidence_score: float
     implementation_plan_ref: Optional[str] = None
+    capsule_version: int = 1
+    capsule_sha256: str = ""
+    previous_seal_sha256: Optional[str] = None
 
     class Config:
         extra = "ignore"

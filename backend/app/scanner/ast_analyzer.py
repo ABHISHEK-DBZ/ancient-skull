@@ -219,13 +219,19 @@ class ScopeVisitor(ast.NodeVisitor):
 def get_local_project_modules(repo_path: Path) -> Set[str]:
     """Detect local Python modules and packages in the repository to filter them out from third-party deps."""
     local_modules: Set[str] = set()
-    for item in repo_path.iterdir():
-        if item.name.startswith(".") or item.name in ["venv", ".venv", "node_modules", "build", "dist"]:
-            continue
-        if item.is_file() and item.suffix == ".py":
-            local_modules.add(item.stem)
-        elif item.is_dir() and ((item / "__init__.py").exists() or any(item.glob("*.py"))):
-            local_modules.add(item.name)
+    roots = [repo_path]
+    src_dir = repo_path / "src"
+    if src_dir.is_dir():
+        roots.append(src_dir)
+
+    for base in roots:
+        for item in base.iterdir():
+            if item.name.startswith(".") or item.name in ["venv", ".venv", "node_modules", "build", "dist", "src"]:
+                continue
+            if item.is_file() and item.suffix == ".py":
+                local_modules.add(item.stem)
+            elif item.is_dir() and ((item / "__init__.py").exists() or any(item.glob("*.py"))):
+                local_modules.add(item.name)
     return local_modules
 
 def analyze_repository_ast(repo_path: Path | str) -> Tuple[Dict[str, List[ASTUsageLocation]], Set[str], List[str]]:
