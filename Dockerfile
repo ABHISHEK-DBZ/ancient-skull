@@ -30,7 +30,7 @@ COPY --from=backend-builder /usr/local/bin /usr/local/bin
 
 # Copy application code
 COPY backend/ ./backend/
-COPY frontend/dist ./frontend/dist/
+COPY --from=frontend-builder /app/frontend/dist ./frontend/dist/
 
 # Create persistent directories
 RUN mkdir -p /home/venv /home/db-backups /home/LogFiles
