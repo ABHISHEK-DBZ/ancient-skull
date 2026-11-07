@@ -18,6 +18,8 @@ from app.database import get_db_connection
 from app.metadata.pypi_client import fetch_pypi_metadata
 from app.metadata.risk_scorer import calculate_risk_score
 from app.models.schemas import ScanProgressResponse, StartScanRequest, StartScanResponse
+from app.switch.client import notify_milestone
+from app.switch.review import request_review
 from app.scanner.ast_analyzer import analyze_repository_ast
 from app.scanner.discovery import scan_declared_dependencies
 from app.scanner.git_fetcher import fetch_git_repository
@@ -136,7 +138,7 @@ def execute_scan_pipeline(scan_id: str, repo_path_str: str, run_ai: bool = False
             _set_progress(scan_id, "4/5: Skipping AI migration planning (disabled)...", 80)
 
         _set_progress(scan_id, "5/5: Assembling Dependency Exit Capsule...", 95)
-        assemble_and_save_capsule(scan_id)
+        _, _, sealed = assemble_and_save_capsule(scan_id)
 
         summary = {
             "total_dependencies": len(all_pkg_names),
@@ -152,6 +154,13 @@ def execute_scan_pipeline(scan_id: str, repo_path_str: str, run_ai: bool = False
                 (json.dumps(summary), "Scan and capsule generation complete.", scan_id),
             )
             conn.commit()
+
+        notify_milestone(
+            f"Exit Capsule sealed for {scan_id}: {summary['total_dependencies']} dependencies, "
+            f"{summary['critical_risk_count']} critical / {summary['high_risk_count']} high risk."
+        )
+        if settings.SWITCH_AGENT_REVIEW_ENABLED:
+            request_review(scan_id, getattr(sealed, "capsule_sha256", ""), summary)
 
     except Exception as exc:
         message = redact_secrets(str(exc))
@@ -325,7 +334,7 @@ def delete_scan(scan_id: str, request: Request):
         for table in (
             "scans", "dependencies", "ai_recommendations", "verification_runs",
             "approval_decisions", "approval_history", "capsules", "capsule_versions",
-            "implementation_plans", "post_verifications",
+            "implementation_plans", "post_verifications", "agent_reviews", "agent_verifications",
         ):
             conn.execute(f"DELETE FROM {table} WHERE scan_id = ?", (scan_id,))
         conn.commit()

@@ -46,6 +46,14 @@ class Settings(BaseSettings):
     GITHUB_REDIRECT_URI: str = Field(default="", description="Registered OAuth callback. Leave empty to derive from APP_BASE_URL / request origin.")
     GITHUB_OAUTH_STATE_TTL_SECONDS: int = Field(default=600)
 
+    # Switch Console / gateway bridge. Empty values auto-detect a local Switch
+    # install from %APPDATA%\switchdash (or SWITCH_GATEWAY_URL when set).
+    SWITCH_GATEWAY_URL: str = Field(default="", description="Switch gateway base URL, e.g. http://127.0.0.1:60398")
+    SWITCH_ADMIN_EMAIL: str = Field(default="")
+    SWITCH_ADMIN_PASSWORD: str = Field(default="")
+    SWITCH_ROOM: str = Field(default="", description="Preferred room id or name for milestone notifications")
+    SWITCH_AGENT_REVIEW_ENABLED: bool = Field(default=True, description="Ask Slack agents to review sealed capsules")
+
     # Application / sessions
     APP_BASE_URL: str = Field(default="", description="Public origin, e.g. https://exit-capsule.example.com")
     FRONTEND_URL: str = Field(default="", description="Frontend origin for dev; empty = same origin")

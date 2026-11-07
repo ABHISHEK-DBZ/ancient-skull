@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { formatTimestamp } from '../pages/DashboardPage';
-import { getScanDetails, startScan } from '../api/client';
+import { getScanDetails, startScan, recordApproval, getAuditLogs } from '../api/client';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -45,6 +45,28 @@ describe('API client', () => {
     const [, init] = fetchMock.mock.calls[0];
     const body = JSON.parse(init.body);
     expect(body).toEqual({ repo_path: '/tmp/repo', run_ai: true });
+  });
+
+  it('binds approvals to the reviewed capsule hash and version', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await recordApproval('s', 'requests', 'APPROVED', 'ok', 'a'.repeat(64), 3);
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(JSON.parse(init.body)).toMatchObject({
+      capsule_sha256: 'a'.repeat(64),
+      capsule_version: 3
+    });
+  });
+
+  it('scopes audit log queries to a scan', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => [] });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await getAuditLogs('scan_1', 50);
+
+    expect(fetchMock.mock.calls[0][0]).toContain('scan_id=scan_1');
   });
 
   it('surfaces backend error details', async () => {

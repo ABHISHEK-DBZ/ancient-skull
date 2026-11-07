@@ -6,6 +6,7 @@ from app.database import get_db_connection
 from app.models.schemas import PlanRequest
 from app.planner.implementation_planner import generate_implementation_plan
 from app.capsule.generator import assemble_and_save_capsule
+from app.switch.client import notify_milestone
 
 router = APIRouter(prefix="/api/scans", tags=["Planner"])
 
@@ -76,6 +77,10 @@ def create_implementation_plan(scan_id: str, req: PlanRequest, request: Request)
 
     # Re-assemble capsule to include implementation plan reference
     assemble_and_save_capsule(scan_id)
+
+    notify_milestone(
+        f"15-Point Implementation Plan generated for {req.package_name} -> {req.candidate_package} in {scan_id}."
+    )
 
     return plan_report.to_dict()
 

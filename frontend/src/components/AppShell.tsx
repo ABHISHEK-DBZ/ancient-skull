@@ -7,6 +7,8 @@ import {
   FileText, 
   FileCode, 
   History, 
+  Bot,
+  ScrollText,
   Settings as SettingsIcon, 
   ChevronLeft, 
   ChevronRight, 
@@ -34,6 +36,8 @@ export type AppTab =
   | 'capsules' 
   | 'plans' 
   | 'post-verify' 
+  | 'workforce'
+  | 'audit-logs'
   | 'settings' 
   | 'dependency' 
   | 'plan-detail';
@@ -78,6 +82,8 @@ export const AppShell: React.FC<AppShellProps> = ({
     { id: 'capsules' as AppTab, label: 'Exit Capsules', icon: FileText },
     { id: 'plans' as AppTab, label: 'Implementation Plans', icon: FileCode },
     { id: 'post-verify' as AppTab, label: 'Post-Implementation', icon: History },
+    { id: 'workforce' as AppTab, label: 'AI Workforce', icon: Bot },
+    { id: 'audit-logs' as AppTab, label: 'Audit Logs', icon: ScrollText },
     { id: 'settings' as AppTab, label: 'Settings', icon: SettingsIcon },
   ];
 

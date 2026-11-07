@@ -30,6 +30,12 @@ class ApprovalRequest(BaseModel):
     package_name: str
     decision: str = Field(..., description="'APPROVED' or 'REJECTED'")
     notes: Optional[str] = None
+    capsule_sha256: str = Field(..., description="SHA-256 of the exact capsule version the developer reviewed")
+    capsule_version: int = Field(..., ge=1, description="Capsule version the developer reviewed")
+
+class SwitchNotifyRequest(BaseModel):
+    message: str
+    room_id: Optional[str] = None
 
 class VerificationRequest(BaseModel):
     package_name: str

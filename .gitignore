@@ -55,6 +55,7 @@ frontend/dist-ssr/
 *.zip
 generated_capsules/
 backend/generated_capsules/
+capsule-report/
 temp_workspaces/
 **/temp_workspaces/
 isolated_envs/

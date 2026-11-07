@@ -13,10 +13,12 @@ import {
   Clock,
   Layers,
   FileCode,
-  FileCheck
+  FileCheck,
+  MessageSquare,
+  RefreshCw
 } from 'lucide-react';
-import { getCapsule } from '../api/client';
-import { CapsuleResponse } from '../api/types';
+import { getCapsule, getAgentVerifications, verifyCapsuleHash } from '../api/client';
+import { AgentVerificationResponse, CapsuleResponse, CapsuleHashVerification } from '../api/types';
 import { CodeBlock } from '../components/CodeBlock';
 import { StatusBadge } from '../components/StatusBadge';
 
@@ -31,6 +33,11 @@ export const CapsulePage: React.FC<CapsulePageProps> = ({ scanId, onBack }) => {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'report' | 'ledger' | 'markdown' | 'json'>('report');
   const [copied, setCopied] = useState(false);
+  const [hashCheck, setHashCheck] = useState<CapsuleHashVerification | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [hashError, setHashError] = useState<string | null>(null);
+  const [agentReview, setAgentReview] = useState<AgentVerificationResponse | null>(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
 
   useEffect(() => {
     if (!scanId) {
@@ -51,6 +58,22 @@ export const CapsulePage: React.FC<CapsulePageProps> = ({ scanId, onBack }) => {
       })
       .finally(() => setLoading(false));
   }, [scanId]);
+
+  const loadAgentReview = React.useCallback(async () => {
+    if (!scanId) return;
+    setReviewLoading(true);
+    try {
+      setAgentReview(await getAgentVerifications(scanId));
+    } catch (err) {
+      console.error('Failed to load agent verdicts:', err);
+    } finally {
+      setReviewLoading(false);
+    }
+  }, [scanId]);
+
+  useEffect(() => {
+    if (scanId) loadAgentReview();
+  }, [scanId, loadAgentReview]);
 
   const data = capsule?.capsule_data;
   const ledger = data?.evidence_ledger || [];
@@ -90,6 +113,18 @@ export const CapsulePage: React.FC<CapsulePageProps> = ({ scanId, onBack }) => {
       };
     });
   }, [data]);
+
+  const handleVerifyHash = async () => {
+    try {
+      setChecking(true);
+      setHashError(null);
+      setHashCheck(await verifyCapsuleHash(scanId));
+    } catch (err: any) {
+      setHashError(err.message || 'Hash verification failed.');
+    } finally {
+      setChecking(false);
+    }
+  };
 
   const handleCopy = (text: string) => {
     if (!text) return;
@@ -280,12 +315,58 @@ export const CapsulePage: React.FC<CapsulePageProps> = ({ scanId, onBack }) => {
                 <span className="font-mono" style={{ color: 'var(--text-primary)', wordBreak: 'break-all', fontSize: '0.74rem' }}>
                   {data?.capsule_sha256 || 'Not sealed'}
                 </span>
+                <button className="btn btn-secondary" onClick={handleVerifyHash} disabled={checking} style={{ marginTop: '6px', padding: '2px 8px', fontSize: '0.7rem' }}>
+                  <ShieldCheck size={12} /> {checking ? 'Verifying...' : 'Verify seal chain'}
+                </button>
+                {hashCheck && (
+                  <div style={{ marginTop: '4px', fontSize: '0.7rem', color: hashCheck.valid ? 'var(--status-pass-text)' : 'var(--status-fail-text)', fontWeight: 600 }}>
+                    {hashCheck.valid ? `Verified v${hashCheck.version}` : `Mismatch in v${hashCheck.version}`}
+                  </div>
+                )}
+                {hashError && <div style={{ marginTop: '4px', fontSize: '0.7rem', color: 'var(--status-fail-text)' }}>{hashError}</div>}
               </div>
               <div>
                 <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.72rem' }}>Seal Timestamp:</span>
                 <span>{data?.scan_timestamp ? new Date(Number(data.scan_timestamp) * (Number(data.scan_timestamp) < 10000000000 ? 1000 : 1)).toUTCString() : (data?.generated_at ? new Date(data.generated_at).toUTCString() : 'Not recorded')}</span>
               </div>
             </div>
+          </div>
+
+          {/* Slack Agent Verification (advisory) */}
+          <div className="workbench-panel" style={{ padding: '18px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', gap: '8px' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.74rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-secondary)' }}>
+                <MessageSquare size={13} /> Slack Agent Verification
+                <span className="badge badge-ai" style={{ fontSize: '0.64rem', textTransform: 'none' }}>Advisory</span>
+              </span>
+              <button className="btn btn-secondary" onClick={loadAgentReview} disabled={reviewLoading} style={{ padding: '2px 8px', fontSize: '0.7rem' }}>
+                <RefreshCw size={12} /> {reviewLoading ? 'Refreshing...' : 'Refresh'}
+              </button>
+            </div>
+            {!agentReview?.requested && (
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                Agents were not asked to review this capsule.
+              </div>
+            )}
+            {agentReview?.requested && agentReview.verifications.length === 0 && (
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                Agents are reviewing the seal; verdicts usually arrive within ~90 seconds. Press Refresh.
+              </div>
+            )}
+            {agentReview?.verifications.map((verdict) => (
+              <div key={verdict.message_id} style={{ borderTop: '1px solid var(--border-color)', padding: '10px 0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--text-primary)' }}>{verdict.agent_name}</span>
+                  <span className="font-mono" style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{verdict.role}</span>
+                  <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                    {new Date(verdict.created_at).toLocaleString()}
+                  </span>
+                </div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px', whiteSpace: 'pre-wrap' }}>
+                  {verdict.body}
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* Migration Recommendations & Verification Table */}

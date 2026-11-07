@@ -7,6 +7,7 @@ from app.database import get_db_connection
 from app.models.schemas import VerificationRequest
 from app.verification.engine import run_verification_pipeline
 from app.capsule.generator import assemble_and_save_capsule
+from app.switch.client import notify_milestone
 
 router = APIRouter(prefix="/api/scans", tags=["Verification"])
 
@@ -82,6 +83,11 @@ def verify_candidate_dependency(scan_id: str, req: VerificationRequest, request:
 
     # Re-assemble updated capsule
     assemble_and_save_capsule(scan_id)
+
+    notify_milestone(
+        f"Verification {req.package_name} -> {req.candidate_package} in {scan_id}: "
+        f"confidence {report.confidence_score}%, {sum(1 for c in report.checks if c.status == 'PASS')}/{len(report.checks)} passed."
+    )
 
     return report.to_dict()
 

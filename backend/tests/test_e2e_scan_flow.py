@@ -43,14 +43,18 @@ def test_complete_e2e_workflow():
     ver_data = ver_resp.json()
     assert len(ver_data["checks"]) == 10
 
-    # 5. Developer approval
+    # 5. Developer approval is bound to the sealed capsule the reviewer saw
+    capsule = client.get(f"/api/scans/{scan_id}/capsule").json()
     app_resp = client.post(f"/api/scans/{scan_id}/approval", json={
         "package_name": "requests",
         "decision": "APPROVED",
-        "notes": "Approved migration from requests to httpx based on PyPI verification."
+        "notes": "Approved migration from requests to httpx based on PyPI verification.",
+        "capsule_sha256": capsule["capsule_sha256"],
+        "capsule_version": capsule["capsule_version"],
     })
     assert app_resp.status_code == 200
     assert app_resp.json()["decision"] == "APPROVED"
+    assert app_resp.json()["approved_capsule_sha256"] == capsule["capsule_sha256"]
 
     # 6. Generate Implementation Plan
     plan_resp = client.post(f"/api/scans/{scan_id}/plan", json={

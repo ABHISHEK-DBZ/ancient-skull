@@ -18,12 +18,16 @@ from app.routes.capsule import router as cap_router
 from app.routes.post_verification import router as post_ver_router
 from app.routes.settings_route import router as settings_router
 from app.routes.auth_github import router as github_router
+from app.routes.switch_route import router as switch_router
+from app.routes.audit_logs import router as audit_router
 
 PUBLIC_API_PREFIXES = (
     "/api/health",
     "/api/auth/github/status",
     "/api/auth/github/login",
     "/api/auth/github/callback",
+    "/api/switch",
+    "/api/audit-logs",
 )
 
 
@@ -78,6 +82,8 @@ app.include_router(cap_router)
 app.include_router(post_ver_router)
 app.include_router(settings_router)
 app.include_router(github_router)
+app.include_router(switch_router)
+app.include_router(audit_router)
 
 
 frontend_dist = BASE_DIR.parent / "frontend" / "dist"

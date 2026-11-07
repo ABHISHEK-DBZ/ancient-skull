@@ -57,11 +57,57 @@ export async function verifyDependency(scanId: string, packageName: string, cand
   });
 }
 
-export async function recordApproval(scanId: string, packageName: string, decision: 'APPROVED' | 'REJECTED', notes?: string): Promise<any> {
+export async function recordApproval(
+  scanId: string,
+  packageName: string,
+  decision: 'APPROVED' | 'REJECTED',
+  notes?: string,
+  capsuleSha256?: string,
+  capsuleVersion?: number
+): Promise<any> {
   return request(`/scans/${scanId}/approval`, {
     method: 'POST',
-    body: JSON.stringify({ package_name: packageName, decision, notes })
+    body: JSON.stringify({
+      package_name: packageName,
+      decision,
+      notes,
+      capsule_sha256: capsuleSha256,
+      capsule_version: capsuleVersion
+    })
   });
+}
+
+export async function verifyCapsuleHash(scanId: string): Promise<import('./types').CapsuleHashVerification> {
+  return request(`/scans/${scanId}/capsule/verify-hash`, { method: 'POST' });
+}
+
+export async function getSwitchStatus(): Promise<import('./types').SwitchStatus> {
+  return request('/switch/status');
+}
+
+export async function getSwitchWorkforce(): Promise<{ agents: import('./types').SwitchAgent[]; total: number; available: boolean }> {
+  return request('/switch/workforce');
+}
+
+export async function listSwitchRooms(): Promise<{ rooms: import('./types').SwitchRoom[]; slack_room?: import('./types').SwitchRoom; war_room?: import('./types').SwitchRoom }> {
+  return request('/switch/rooms');
+}
+
+export async function getRoomMessages(roomId: string, limit: number = 50): Promise<{ room_id: string; messages: import('./types').SwitchChatMessage[]; total: number }> {
+  return request(`/switch/rooms/${encodeURIComponent(roomId)}/messages?limit=${limit}`);
+}
+
+export async function notifySwitchRoom(message: string, roomId?: string): Promise<{ ok?: boolean; status?: string; room_id: string; room_name: string; bridge_type?: string | null }> {
+  return request('/switch/notify', {
+    method: 'POST',
+    body: JSON.stringify({ message, room_id: roomId })
+  });
+}
+
+export async function getAuditLogs(scanId?: string | null, limit: number = 200): Promise<import('./types').AuditLogEvent[]> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (scanId) params.set('scan_id', scanId);
+  return request(`/audit-logs?${params.toString()}`);
 }
 
 export async function createImplementationPlan(scanId: string, packageName: string, candidatePackage: string): Promise<any> {
@@ -73,6 +119,10 @@ export async function createImplementationPlan(scanId: string, packageName: stri
 
 export async function getCapsule(scanId: string): Promise<CapsuleResponse> {
   return request(`/scans/${scanId}/capsule`);
+}
+
+export async function getAgentVerifications(scanId: string): Promise<import('./types').AgentVerificationResponse> {
+  return request(`/scans/${scanId}/agent-verifications`);
 }
 
 export async function postVerifyWorkingCopy(scanId: string, workingCopyPath: string, targetPackage: string, candidatePackage: string): Promise<PostVerificationRun> {

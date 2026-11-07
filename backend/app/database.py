@@ -4,7 +4,7 @@ from pathlib import Path
 
 from app.config import settings
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 5
 
 
 class _ClosingConnection(sqlite3.Connection):
@@ -174,6 +174,30 @@ def init_db() -> None:
         )
         """)
         cursor.execute("""
+        CREATE TABLE IF NOT EXISTS agent_reviews (
+            scan_id TEXT PRIMARY KEY,
+            room_id TEXT NOT NULL,
+            request_seq INTEGER NOT NULL DEFAULT 0,
+            request_message_id TEXT,
+            digest TEXT,
+            handles_json TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+        """)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS agent_verifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            scan_id TEXT NOT NULL,
+            agent_name TEXT NOT NULL,
+            role TEXT NOT NULL,
+            message_id TEXT NOT NULL,
+            body TEXT NOT NULL,
+            capsule_sha256 TEXT,
+            created_at TEXT NOT NULL,
+            UNIQUE(scan_id, message_id)
+        )
+        """)
+        cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id TEXT PRIMARY KEY,
             login TEXT NOT NULL,
@@ -211,6 +235,11 @@ def init_db() -> None:
         _add_column(conn, "github_sessions", "expires_at REAL")
         _add_column(conn, "github_sessions", "refresh_token TEXT")
         _add_column(conn, "github_sessions", "scopes TEXT")
+        # TD-01: bind every approval to the exact capsule seal that was reviewed.
+        _add_column(conn, "approval_decisions", "capsule_sha256 TEXT")
+        _add_column(conn, "approval_decisions", "capsule_version INTEGER")
+        _add_column(conn, "approval_history", "capsule_sha256 TEXT")
+        _add_column(conn, "approval_history", "capsule_version INTEGER")
 
         if version < 3:
             # Old rows stored plaintext tokens and were written into clone URLs.
@@ -235,6 +264,7 @@ def init_db() -> None:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_approval_history_scan ON approval_history(scan_id, package_name)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON github_sessions(expires_at)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_oauth_states_created ON oauth_states(created_at)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_agent_verifications_scan ON agent_verifications(scan_id)")
 
         cursor.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
         conn.commit()

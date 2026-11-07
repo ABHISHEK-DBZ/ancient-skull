@@ -19,7 +19,7 @@ import {
   FileCode2,
   AlertCircle
 } from 'lucide-react';
-import { getDependencyDetails, verifyDependency, recordApproval, createImplementationPlan } from '../api/client';
+import { getDependencyDetails, verifyDependency, recordApproval, createImplementationPlan, getCapsule } from '../api/client';
 import { DependencyDetail, VerificationReport } from '../api/types';
 import { StatusBadge } from '../components/StatusBadge';
 import { RiskGauge } from '../components/RiskGauge';
@@ -98,10 +98,16 @@ export const DependencyDetailsPage: React.FC<DependencyDetailsPageProps> = ({
     }
   };
 
+  const submitApproval = async (decision: 'APPROVED' | 'REJECTED', notes?: string) => {
+    const capsule = await getCapsule(scanId);
+    if (!capsule.capsule_sha256) throw new Error('Capsule is not sealed yet. Re-open the capsule and try again.');
+    return recordApproval(scanId, packageName, decision, notes, capsule.capsule_sha256, capsule.capsule_version || 1);
+  };
+
   const handleApproval = async (decision: 'APPROVED' | 'REJECTED') => {
     try {
       setApproving(true);
-      await recordApproval(scanId, packageName, decision, approvalNotes);
+      await submitApproval(decision, approvalNotes);
       setApprovalDecision(decision);
       setApprovalMsg(`Decision persisted: ${decision}`);
       setTimeout(() => setApprovalMsg(null), 3000);
@@ -140,7 +146,7 @@ export const DependencyDetailsPage: React.FC<DependencyDetailsPageProps> = ({
       }
       try {
         setApproving(true);
-        await recordApproval(scanId, packageName, 'APPROVED', approvalNotes || `Approved migration to ${cand} via Plan Generator`);
+        await submitApproval('APPROVED', approvalNotes || `Approved migration to ${cand} via Plan Generator`);
         setApprovalDecision('APPROVED');
         setApprovalMsg('Decision persisted: APPROVED');
       } catch (appErr: any) {

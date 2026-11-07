@@ -1,3 +1,4 @@
+import hashlib
 import json
 from pathlib import Path
 from typing import Optional
@@ -6,6 +7,7 @@ from fastapi.responses import FileResponse
 from app.config import settings
 from app.core.auth import enforce_scan_access
 from app.database import get_db_connection
+from app.switch.review import sync_replies
 
 router = APIRouter(prefix="/api/scans", tags=["Capsule"])
 
@@ -76,6 +78,22 @@ def get_capsule_data(scan_id: str, request: Request):
     }
 
 
+@router.get("/{scan_id}/agent-verifications")
+def list_agent_verifications(scan_id: str, request: Request):
+    """Advisory verdicts from the Slack-bridged agents for this capsule."""
+    enforce_scan_access(request, scan_id)
+    with get_db_connection() as conn:
+        review = conn.execute(
+            "SELECT digest, created_at FROM agent_reviews WHERE scan_id = ?", (scan_id,)
+        ).fetchone()
+    return {
+        "scan_id": scan_id,
+        "requested": review is not None,
+        "digest": review["digest"] if review else None,
+        "verifications": sync_replies(scan_id),
+    }
+
+
 @router.get("/{scan_id}/capsule/versions")
 def list_capsule_versions(scan_id: str, request: Request):
     enforce_scan_access(request, scan_id)
@@ -85,6 +103,65 @@ def list_capsule_versions(scan_id: str, request: Request):
             (scan_id,),
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+@router.post("/{scan_id}/capsule/verify-hash")
+def verify_capsule_hash(scan_id: str, request: Request):
+    """Recompute the capsule's SHA-256 and check the version chain.
+
+    An external auditor can verify a downloaded capsule.json without trusting
+    this server: the digest covers the document with `capsule_sha256` blanked.
+    """
+    enforce_scan_access(request, scan_id)
+
+    with get_db_connection() as conn:
+        versions = conn.execute(
+            "SELECT version, sha256, prev_sha256, capsule_json_path FROM capsule_versions "
+            "WHERE scan_id = ? ORDER BY version ASC",
+            (scan_id,),
+        ).fetchall()
+
+    if not versions:
+        raise HTTPException(status_code=404, detail=f"No sealed capsule for scan '{scan_id}'.")
+
+    chain_valid = True
+    results = []
+    previous = None
+    for row in versions:
+        path = _resolve_capsule_file(row["capsule_json_path"], scan_id, "capsule.json")
+        stored = (row["sha256"] or "").lower()
+        recomputed = ""
+        matches = False
+        if path:
+            try:
+                document = json.loads(path.read_text(encoding="utf-8"))
+                unsigned = dict(document)
+                unsigned["capsule_sha256"] = ""
+                recomputed = hashlib.sha256(json.dumps(unsigned, indent=2).encode("utf-8")).hexdigest()
+                matches = recomputed == stored
+            except (OSError, ValueError):
+                matches = False
+        linked = previous is None or (row["prev_sha256"] or "").lower() == previous
+        chain_valid = chain_valid and matches and linked
+        results.append({
+            "version": row["version"],
+            "stored_sha256": stored,
+            "recomputed_sha256": recomputed,
+            "file_matches": matches,
+            "prev_sha256": row["prev_sha256"],
+            "chain_link_valid": linked,
+        })
+        previous = stored
+
+    latest = results[-1]
+    return {
+        "scan_id": scan_id,
+        "valid": chain_valid,
+        "version": latest["version"],
+        "stored_sha256": latest["stored_sha256"],
+        "recomputed_sha256": latest["recomputed_sha256"],
+        "versions": results,
+    }
 
 
 @router.get("/{scan_id}/capsule/download/json")

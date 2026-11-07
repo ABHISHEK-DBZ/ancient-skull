@@ -164,6 +164,22 @@ export interface CapsuleResponse {
   download_md_url: string;
 }
 
+export interface AgentVerification {
+  agent_name: string;
+  role: string;
+  message_id: string;
+  body: string;
+  capsule_sha256?: string | null;
+  created_at: string;
+}
+
+export interface AgentVerificationResponse {
+  scan_id: string;
+  requested: boolean;
+  digest?: string | null;
+  verifications: AgentVerification[];
+}
+
 export interface PostVerificationCheck {
   name: string;
   status: 'PASS' | 'FAIL' | 'INCONCLUSIVE' | 'NOT_RUN';
@@ -226,6 +242,68 @@ export interface ImplementationPlanSummary {
   checks_count: number;
 }
 
+export interface SwitchAgent {
+  id: string | null;
+  name: string;
+  role: string;
+  display_name?: string | null;
+  description: string;
+  connector_type?: string | null;
+  icon_url?: string | null;
+  registered: boolean;
+  status: 'live' | 'registered' | 'not_registered' | string;
+  rooms: string[];
+}
+
+export interface SwitchRoom {
+  id: string;
+  name: string;
+  description: string;
+  bridge_type?: string | null;
+  bridge_display_name?: string | null;
+  external_channel_url?: string | null;
+  agent_count: number;
+  agent_statuses: Record<string, string>;
+}
+
+export interface SwitchStatus {
+  available: boolean;
+  gateway_url: string | null;
+  error?: string;
+  agents: unknown[];
+  workforce: SwitchAgent[];
+  rooms: SwitchRoom[];
+}
+
+export interface AuditLogEvent {
+  type: 'scan' | 'ai_recommendation' | 'verification' | 'capsule_sealed' | 'approval' | string;
+  scan_id: string;
+  package_name?: string;
+  timestamp: string;
+  title: string;
+  detail: string;
+  status?: string;
+  capsule_version?: number;
+  capsule_sha256?: string;
+  prev_sha256?: string | null;
+}
+
+export interface CapsuleHashVerification {
+  scan_id: string;
+  valid: boolean;
+  version: number;
+  stored_sha256: string;
+  recomputed_sha256: string;
+  versions: Array<{
+    version: number;
+    stored_sha256: string;
+    recomputed_sha256: string;
+    file_matches: boolean;
+    prev_sha256?: string | null;
+    chain_link_valid: boolean;
+  }>;
+}
+
 export interface GitHubUser {
   username: string;
   name: string;
@@ -249,5 +327,20 @@ export interface GitHubRepository {
   default_branch: string;
   language: string;
   updated_at: string;
+}
+
+export interface SwitchChatMessage {
+  id?: string;
+  seq?: number;
+  roomId?: string;
+  body: string;
+  createdAt?: string;
+  sender?: {
+    clientId?: string;
+    name?: string;
+    kind?: string;
+    agentId?: string;
+    userId?: string;
+  };
 }
 

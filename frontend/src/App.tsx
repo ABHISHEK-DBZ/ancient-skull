@@ -10,6 +10,8 @@ import { CapsulePage } from './pages/CapsulePage';
 import { PlansListPage } from './pages/PlansListPage';
 import { ImplementationPlannerPage } from './pages/ImplementationPlannerPage';
 import { PostVerificationPage } from './pages/PostVerificationPage';
+import { WorkforcePage } from './pages/WorkforcePage';
+import { AuditLogsPage } from './pages/AuditLogsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { listScans, completeGitHubCallback } from './api/client';
 import { GitHubModal } from './components/GitHubModal';
@@ -25,6 +27,8 @@ const VALID_TABS: Array<AppTab | 'landing'> = [
   'capsules',
   'plans',
   'post-verify',
+  'workforce',
+  'audit-logs',
   'settings',
   'dependency',
   'plan-detail'
@@ -345,6 +349,10 @@ const AppContent: React.FC = () => {
             </button>
           </div>
         )}
+
+        {currentTab === 'workforce' && <WorkforcePage />}
+
+        {currentTab === 'audit-logs' && <AuditLogsPage scanId={activeScanId} />}
 
         {currentTab === 'settings' && (
           <SettingsPage />
